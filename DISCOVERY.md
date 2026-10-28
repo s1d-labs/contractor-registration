@@ -12,7 +12,8 @@ Checked through an Indian exit (Delhi VPS, SOCKS tunnel). The team box's own IP 
 | pmgsy.nic.in | blocked | **blocked** (SOCKS/TCP times out) |
 | omms.nic.in, ommas.nic.in | no DNS | no DNS (real OMMAS hostname unknown) |
 
-GitHub Actions runner reachability is **not tested** yet. The hub already holds ~0.9M eprocure.gov.in tenders, so runners probably get through where this box cannot.
+GitHub Actions runners **reach nhai.gov.in and morth.gov.in** (check workflow, 2026-10-28: scrape-check all PASS on a GitHub runner).
+CPWD and PMGSY from runners are not tested yet.
 
 ## Family verdict
 
@@ -77,6 +78,6 @@ The record of each stored file has `path`, `sha256`, `bytes`, `pages`, `needs_oc
 
 ## Open questions
 
-- Do GitHub Actions runners reach nhai.gov.in, morth.gov.in, cpwd.gov.in and pmgsy.nic.in? (the check workflow answers the first two)
+- Do GitHub Actions runners reach cpwd.gov.in and pmgsy.nic.in?
 - Does the hub's health check reach nhai.gov.in and morth.gov.in? While it fails, the projects' work is held.
 - Real OMMAS public hostname.
