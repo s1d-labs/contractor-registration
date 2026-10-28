@@ -25,8 +25,19 @@ jobs:
           python3 -c "import json; [print(c) for c in json.load(open('scrape.json')).get('setup', [])]" | grep -v "requirements.txt" | while IFS= read -r cmd; do bash -c "$cmd"; done
       - name: Parsing tests
         run: python -m pytest tests -q
-      - name: scrape-check (local stand-in hub, 2 real items)
-        run: scrape-check --items 2
+      # One light real item per adapter, in a CI-only project (named projects would run their own heavy queue items). A FAIL here with http_error / timeouts
+      # means the runner cannot reach the site: these sites answer Indian addresses only.
+      - name: scrape-check nhai (local stand-in hub)
+        run: >
+          scrape-check --project contractor-registration-ci-nhai --task crawl --env ADAPTER=nhai --timeout 900
+          --item '{"key": "tenders-p0", "payload": {"kind": "tenders", "endpoint": "tenderlist", "page": 0, "detail": false}}'
+          --item '{"key": "page-ratings", "payload": {"kind": "page", "nid": "publication-rating-dpr-consultants", "files": false}}'
+      - name: scrape-check morth (local stand-in hub)
+        if: ${{ always() }}
+        run: >
+          scrape-check --project contractor-registration-ci-morth --task crawl --env ADAPTER=morth --timeout 900
+          --item '{"key": "policies-and-regulations", "payload": {"slug": "policies-and-regulations", "files_re": "."}}'
+          --item '{"key": "acts-and-rules", "payload": {"slug": "acts-and-rules"}}'
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:

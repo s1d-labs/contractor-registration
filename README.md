@@ -1,8 +1,22 @@
-# family-template
+# contractor-registration
 
-Start a new scraping family for the s1d-labs pool. A family is one kind of site (or one platform many sites share); the pool runs
-its code on members' GitHub Actions minutes. This template is a complete, working family for
-[books.toscrape.com](https://books.toscrape.com) (a public site made for scraping practice): copy it, then change it.
+Government contractor, consultant and vendor registers for the s1d-labs pool: empanelment calls, ratings, debarment orders and
+the tenders and circulars around them. The sites run on different platforms, so this family is one worker loop (`crawl.py`) with
+one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks it.
+
+| Adapter | Site | Projects (family.py) |
+|---|---|---|
+| `nhai` | nhai.gov.in (Angular + Drupal JSON API) | `-nhai-tenders`, `-nhai-tender-archive`, `-nhai-pages` |
+| `morth` | morth.gov.in (Angular + Laravel JSON API) | `-morth-documents` |
+
+Documents go to the family bucket as `pdf/`, `ocr-needed/` (scans without a text layer) and `docs/`. What each site offers, what
+is behind a login, and what comes next: [DISCOVERY.md](DISCOVERY.md). These sites answer Indian addresses only.
+
+Run one queue item without the hub: `python crawl.py --local nhai '{"kind": "page", "nid": "publication-rating-dpr-consultants"}'`.
+Add a site: write `adapters/<site>.py` with `run(ctx, payload)` and pure `parse_*` functions, saved responses in `tests/pages/`, then
+a project in `family.py`.
+
+The rest of this README is the template's guide.
 
 ## Make your family
 
