@@ -67,6 +67,7 @@ PROJECTS = [
         "title": "NHAI tender archive 2018-2025",
         "task": "crawl", "target": "nhai.gov.in", "env": _env("nhai", "https://nhai.gov.in"),
         "probe": f"{FAMILY}:nhai.gov.in",
+        "max_workers": 5,     # of the 8 per target: leaves room for the live tenders and the ratings / debarment pages
         "unit_label": "page", "record_label": "tender",
         # details and documents for every tender (~5 MB a tender, ~50 GB in all)
         "items": [{"key": f"{ep}-p{k}", "payload": {"kind": "tenders", "endpoint": ep, "page": k, "detail": True, "files": True,
