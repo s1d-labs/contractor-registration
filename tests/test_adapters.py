@@ -153,3 +153,12 @@ def test_requests_stop_when_the_time_budget_is_used_up():
     ctx = common.Ctx(common.LocalHub("p"), deadline=time.time() - 1)
     with pytest.raises(common.TimeUp):
         ctx.request("GET", "https://example.invalid/")
+
+
+def test_nul_characters_are_removed_before_records_are_sent():
+    assert common.no_nul({"a\x00": ["x\x00y", {"t": "\x00"}], "n": 3}) == {"a": ["xy", {"t": ""}], "n": 3}
+    sent = []
+    hub = common.LocalHub("p")
+    hub.record = lambda rid, data: sent.append((rid, data))
+    common.Ctx(hub).record("id\x00", {"text": "annual\x00report"})
+    assert sent == [("id", {"text": "annualreport"})]

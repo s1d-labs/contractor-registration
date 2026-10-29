@@ -19,7 +19,9 @@ from adapters.common import Ctx, LocalHub, TimeUp
 
 PROJECT = os.environ.get("SCRAPE_POOL_PROJECT", "")
 ADAPTER = os.environ.get("ADAPTER", "")
-DEADLINE = time.time() + float(os.environ.get("SCRAPE_MAX_HOURS", "1")) * 3600 - 120
+MAX_S = float(os.environ.get("SCRAPE_MAX_HOURS", "1")) * 3600
+DEADLINE = time.time() + MAX_S - 120
+ITEM_S = min(15 * 60, MAX_S / 4)   # an item can take ~15 minutes (50 tenders and their documents): none starts with less time left
 
 
 def adapter(name):
@@ -40,7 +42,7 @@ def main():
     hub = HubClient(PROJECT, job_index=int(os.environ.get("SCRAPE_JOB_INDEX", "0")), total_jobs=int(os.environ.get("SCRAPE_TOTAL_JOBS", "1")))
     ctx = Ctx(hub, project=PROJECT, deadline=DEADLINE)
     try:
-        while time.time() < DEADLINE:
+        while time.time() < DEADLINE - ITEM_S:
             if hub.settings.get("paused"):
                 time.sleep(30)                          # the hub holds us (site down, or the family owner paused it)
                 continue

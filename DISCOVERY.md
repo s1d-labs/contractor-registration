@@ -1,4 +1,4 @@
-# Discovery notes (2026-10-28)
+# Discovery notes (2026-10-28, updated 2026-10-29)
 
 Checked through an Indian exit (Delhi VPS, SOCKS tunnel). The team box's own IP (Contabo, France) is dropped at TCP level by all of these hosts.
 
@@ -12,7 +12,9 @@ Checked through an Indian exit (Delhi VPS, SOCKS tunnel). The team box's own IP 
 | pmgsy.nic.in | blocked | **blocked** (SOCKS/TCP times out) |
 | omms.nic.in, ommas.nic.in | no DNS | no DNS (real OMMAS hostname unknown) |
 
-GitHub Actions runners **reach nhai.gov.in and morth.gov.in** (check workflow, 2026-10-28: scrape-check all PASS on a GitHub runner). **mes.gov.in does not answer GitHub runners** (2026-10-29: every request a connection error), so MES is not in the pool; `adapters/mes.py` is ready for an Indian runner.
+GitHub Actions runners **reach nhai.gov.in and morth.gov.in** (check workflow, 2026-10-28: scrape-check all PASS on a GitHub runner;
+the pool has been collecting from both since 2026-10-29 16:20 UTC), and so do the hub's health checks (MoRTH 23/23, NHAI 22/23 in
+the first 30 minutes). **mes.gov.in does not answer GitHub runners** (2026-10-29: every request a connection error), so MES is not in the pool; `adapters/mes.py` is ready for an Indian runner.
 CPWD and PMGSY from runners are not tested yet.
 
 ## Family verdict
@@ -41,7 +43,7 @@ No pair shares a platform, so the "family = one platform" rule does not hold for
 | Project | Site | Queue | Records | Files |
 |---|---|---|---|---|
 | `contractor-registration-nhai-tenders` | nhai.gov.in | 6 pages of `tenderlist` (242 live) | one per tender with `tenderdetail` (dates, tender no, documents) and an `is_empanelment` flag | all tender documents |
-| `contractor-registration-nhai-tender-archive` | nhai.gov.in | 223 pages over 8 archive endpoints (2018-2025, ~10,900 tenders) | as above | all tender documents (~5 MB a tender) |
+| `contractor-registration-nhai-tender-archive` | nhai.gov.in | 223 pages over 8 archive endpoints (2018-2025, ~10,900 tenders); at most 5 of the 8 nhai.gov.in workers | as above | all tender documents (~3.5 MB a tender) |
 | `contractor-registration-nhai-pages` | nhai.gov.in | 7 CMS pages + `commontype` blacklisted-debarred-firms | ratings documents (DPR, AE/IE, contractor), debarment orders (date, order no, subject), standard RFP/RFQ documents, procurement manual, NHAI web-application catalogue (links) | all linked documents |
 | `contractor-registration-morth-documents` | morth.gov.in | 74 items (8 document pages, ~100 documents an item) | one per document: group, title, dates, wing, circular no, URL, `contractor_related` flag | every document (~7,000) |
 
@@ -55,6 +57,16 @@ docs/<section>/<hash8>-<name>.<ext>       doc, docx, xls, xlsx, zip, ...
 ```
 
 The record of each stored file has `path`, `sha256`, `bytes`, `pages`, `needs_ocr`, `text_path`, `text_chars` and `text`.
+What has been collected, how to query it and what it shows: [DATA.md](DATA.md).
+
+## Status (2026-10-29)
+
+- Registered on the hub (setup, 16:18 UTC): 4 projects, 311 queue items, 2 health checks. Bucket `s1d-labs-trideep`.
+- First hour: 6,611 MoRTH documents and 3,829 NHAI archive tenders; 29,918 files (21.4 GiB) in the bucket.
+- NHAI tender numbers are mostly not on CPPP: 846 of 3,824 archive tenders match `gepnic-etenders` (22%).
+- Fixes waiting in PR #4: NUL characters in PDF text made the hub refuse record batches (6 MoRTH items retrying); runs no longer
+  start an item in their last 15 minutes; the archive is capped at 5 workers so the live tenders and the ratings / debarment
+  pages start.
 
 ## Login-only sections (links only, not scraped)
 
@@ -82,5 +94,6 @@ The record of each stored file has `path`, `sha256`, `bytes`, `pages`, `needs_oc
 ## Open questions
 
 - Do GitHub Actions runners reach cpwd.gov.in and pmgsy.nic.in?
-- Does the hub's health check reach nhai.gov.in and morth.gov.in? While it fails, the projects' work is held.
 - Real OMMAS public hostname.
+- An Indian runner (e.g. a self-hosted GitHub Actions runner on an Indian VPS) would open mes.gov.in, and possibly cpwd.gov.in and
+  pmgsy.nic.in, to the pool: does the hub accept runs from self-hosted runners?

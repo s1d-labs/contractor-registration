@@ -34,6 +34,17 @@ def clean(s):
     return re.sub(r"\s+", " ", s or "").strip()
 
 
+def no_nul(x):
+    """x with NUL characters removed from every string: Postgres cannot store \\u0000 in JSON, and the hub refuses the whole batch."""
+    if isinstance(x, str):
+        return x.replace("\x00", "")
+    if isinstance(x, dict):
+        return {no_nul(k): no_nul(v) for k, v in x.items()}
+    if isinstance(x, list):
+        return [no_nul(v) for v in x]
+    return x
+
+
 def safe_name(name, limit=90):
     """File name restricted to the characters the hub accepts in upload paths ([A-Za-z0-9._-])."""
     name = unquote(name)
@@ -155,7 +166,7 @@ class Ctx:
             return None
 
     def record(self, rid, data):
-        self.hub.record(rid, data)
+        self.hub.record(no_nul(rid), no_nul(data))
 
     def download(self, url, section, headers=None):
         """Fetch a document and store it. PDFs with no text layer go to ocr-needed/, other PDFs to pdf/, the rest to docs/.
