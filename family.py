@@ -12,8 +12,8 @@ from pathlib import Path
 
 FAMILY = json.loads((Path(__file__).parent / "scrape.json").read_text())["family"]
 
-# MoRTH documents whose files are downloaded; every other document still gets a metadata record (see adapters/morth.py)
-MORTH_FILES = r"debar|blacklist|suspen|empanel|enlist|rating|contractor|concession|consultan|rfp\b|rfq\b|prequalif"
+MORTH_FILES = "."     # MoRTH documents whose files are downloaded ("." = all); every document gets a record either way
+DOCS_PER_ITEM = 100   # MoRTH documents per queue item, so no item runs for hours
 
 NHAI_ARCHIVE = {      # archive endpoint -> tenders in it (calendar year of publication); the site's own endpoint names
     "tenderarchive": 1667,       # 2018
@@ -38,6 +38,13 @@ MORTH_PAGES = {       # backend/api slug -> documents on it
     "orders-and-notices": 2177, "gazettes-notifications": 908, "guidelines": 428, "public-notices": 677,
     "comprehensive-compendium-circular": 2490, "reports": 264, "acts-and-rules": 22, "policies-and-regulations": 6,
 }
+MES_WORKS = {         # mes.gov.in table pages -> pages in the pager (0-based ?page=N)
+    "works/product-approval": 27,                   # product approval letters + the consolidated list of approved products
+    "works/consultancy-miscellaneous": 1,           # consolidated lists of approved / enlisted consultants
+    "works-policies-data/contracts": 1,             # contract policy letters (incl. the enlistment policy for consultants)
+    "works-directorate-technical-information": 1,
+}
+# MES tenders are not queued: the gepnic family already holds them from defproc.gov.in under the same CPPP ids
 
 
 def _env(adapter, site):
@@ -61,8 +68,8 @@ PROJECTS = [
         "task": "crawl", "target": "nhai.gov.in", "env": _env("nhai", "https://nhai.gov.in"),
         "probe": f"{FAMILY}:nhai.gov.in",
         "unit_label": "page", "record_label": "tender",
-        # details for every tender; documents only for empanelment calls (the rest of the files can be fetched later)
-        "items": [{"key": f"{ep}-p{k}", "payload": {"kind": "tenders", "endpoint": ep, "page": k, "detail": True, "files": False,
+        # details and documents for every tender (~5 MB a tender, ~50 GB in all)
+        "items": [{"key": f"{ep}-p{k}", "payload": {"kind": "tenders", "endpoint": ep, "page": k, "detail": True, "files": True,
                                                     "section": f"tenders-archive/{ep}", "expected": 50}}
                   for ep, total in NHAI_ARCHIVE.items() for k in range(ceil(total / 50))],
     },
@@ -81,7 +88,19 @@ PROJECTS = [
         "task": "crawl", "target": "morth.gov.in", "env": _env("morth", "https://morth.gov.in"),
         "probe": f"{FAMILY}:morth.gov.in",
         "unit_label": "page", "record_label": "document",
-        "items": [{"key": slug, "payload": {"slug": slug, "files_re": MORTH_FILES, "expected": n}} for slug, n in MORTH_PAGES.items()],
+        "items": [{"key": f"{slug}-part{k}" if n > DOCS_PER_ITEM else slug,
+                   "payload": {"slug": slug, "part": k, "parts": ceil(n / DOCS_PER_ITEM), "files_re": MORTH_FILES,
+                               "expected": ceil(n / ceil(n / DOCS_PER_ITEM))}}
+                  for slug, n in MORTH_PAGES.items() for k in range(ceil(n / DOCS_PER_ITEM))],
+    },
+    {
+        "name": f"{FAMILY}-mes-works",
+        "title": "MES product approvals, approved consultants and contract policies",
+        "task": "crawl", "target": "mes.gov.in", "env": _env("mes", "https://mes.gov.in"),
+        "probe": f"{FAMILY}:mes.gov.in",
+        "unit_label": "page", "record_label": "letter / list",
+        "items": [{"key": f"{path.replace('/', '-')}-p{k}", "payload": {"path": path, "page": k, "files": True, "expected": 10}}
+                  for path, pages in MES_WORKS.items() for k in range(pages)],
     },
 ]
 
@@ -89,4 +108,5 @@ PROJECTS = [
 PROBES = [
     {"name": f"{FAMILY}:nhai.gov.in", "url": "https://nhai.gov.in/", "expect": "National Highways Authority of India"},
     {"name": f"{FAMILY}:morth.gov.in", "url": "https://morth.gov.in/", "expect": "Ministry of Road Transport"},
+    {"name": f"{FAMILY}:mes.gov.in", "url": "https://mes.gov.in/", "expect": "Military Engineer Services"},
 ]

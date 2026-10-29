@@ -3,7 +3,11 @@ import io
 import json
 from pathlib import Path
 
-from adapters import common, morth, nhai
+import time
+
+import pytest
+
+from adapters import common, mes, morth, nhai
 
 PAGES = Path(__file__).parent / "pages"
 load = lambda name: json.loads((PAGES / name).read_text(encoding="utf-8"))
@@ -82,6 +86,42 @@ def test_morth_empty_response_gives_nothing():
     assert morth.parse_documents({}, "guidelines") == [] and morth.parse_documents(None, "guidelines") == []
 
 
+def test_morth_parts_split_the_documents_without_overlap():
+    js = load("morth_orders.json")
+    docs = morth.parse_documents(js, "orders-and-notices")
+    parts = [[d for d in docs if int(d["doc_id"], 16) % 3 == k] for k in range(3)]
+    assert sorted(d["doc_id"] for p in parts for d in p) == sorted(d["doc_id"] for d in docs)
+
+
+def test_morth_relevance_flag():
+    assert morth.RELEVANT.search("Related to Debarment and Blacklisting Speaking order declaring the firm")
+    assert morth.RELEVANT.search("Model Concession Agreement (MCA) for Hybrid Annuity Model (HAM)")
+    assert not morth.RELEVANT.search("Financial Sanctions Revised allocation of funds to NHIDCL")
+
+
+# --- MES ----------------------------------------------------------------------------------------------------------------
+
+def test_mes_tender_rows_with_attachment_and_cppp_id():
+    rows = mes.parse_rows((PAGES / "mes_tenders.html").read_text(encoding="utf-8"))
+    assert len(rows) == 4
+    first = rows[0]
+    assert list(first["columns"]) == ["SN", "Title", "Start Date", "End Date", "Attachment"]
+    assert first["tender_id"] == "2026_MES_792606_1"
+    assert first["urls"] == ["https://mes.gov.in/sites/default/files/2026-10/Tendernotice_1.pdf"]
+
+
+def test_mes_row_id_ignores_the_serial_number():
+    cols = {"SN": "1", "Title": "Repair of roads", "Start Date": "x"}
+    assert mes.row_id("tenders", cols) == mes.row_id("tenders", {**cols, "SN": "7"})
+    assert mes.row_id("tenders", cols) != mes.row_id("tenders", {**cols, "Title": "Other"})
+
+
+def test_mes_product_approval_rows():
+    rows = mes.parse_rows((PAGES / "mes_product_approval.html").read_text(encoding="utf-8"))
+    assert rows and rows[0]["columns"]["Subject"].lower().startswith("list of approved products")
+    assert rows[0]["urls"][0].startswith("https://mes.gov.in/sites/default/files/") and rows[0]["tender_id"] is None
+
+
 # --- shared helpers -----------------------------------------------------------------------------------------------------
 
 def test_upload_names_only_use_characters_the_hub_accepts():
@@ -107,3 +147,9 @@ def test_local_hub_stores_files_under_the_project(tmp_path, monkeypatch):
     hub = common.LocalHub("p")
     [out] = hub.upload_many([("pdf/x/a.pdf", b"%PDF-1.4", "application/pdf")])
     assert (tmp_path / "data" / "p" / "pdf" / "x" / "a.pdf").read_bytes() == b"%PDF-1.4" and out["bytes"] == 8
+
+
+def test_requests_stop_when_the_time_budget_is_used_up():
+    ctx = common.Ctx(common.LocalHub("p"), deadline=time.time() - 1)
+    with pytest.raises(common.TimeUp):
+        ctx.request("GET", "https://example.invalid/")

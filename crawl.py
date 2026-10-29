@@ -6,7 +6,8 @@ SCRAPE_POOL_PROJECT (which project), SCRAPE_JOB_INDEX / SCRAPE_TOTAL_JOBS (this 
 
 Try an adapter without the hub (records on stdout, documents under ./data/, counters on stderr):
     python crawl.py --local nhai '{"kind": "tenders", "endpoint": "tenderlist", "page": 0, "detail": false}'
-These sites answer Indian addresses only; from elsewhere set ALL_PROXY=socks5h://127.0.0.1:1080 (needs `pip install pysocks`).
+The sites drop some foreign hosting addresses (the team box); there, set ALL_PROXY=socks5h://127.0.0.1:1080 NO_PROXY=127.0.0.1,localhost
+(needs `pip install pysocks`). GitHub's runners reach them directly.
 """
 import importlib
 import json
@@ -14,7 +15,7 @@ import os
 import sys
 import time
 
-from adapters.common import Ctx, LocalHub
+from adapters.common import Ctx, LocalHub, TimeUp
 
 PROJECT = os.environ.get("SCRAPE_POOL_PROJECT", "")
 ADAPTER = os.environ.get("ADAPTER", "")
@@ -37,7 +38,7 @@ def main():
     from scrape_hub_client import HubClient      # imported here so --local works without it
     run = adapter(ADAPTER).run
     hub = HubClient(PROJECT, job_index=int(os.environ.get("SCRAPE_JOB_INDEX", "0")), total_jobs=int(os.environ.get("SCRAPE_TOTAL_JOBS", "1")))
-    ctx = Ctx(hub, project=PROJECT)
+    ctx = Ctx(hub, project=PROJECT, deadline=DEADLINE)
     try:
         while time.time() < DEADLINE:
             if hub.settings.get("paused"):
@@ -49,6 +50,9 @@ def main():
             item = items[0]
             try:
                 n = run(ctx, item["payload"])
+            except TimeUp:                              # records sent so far are kept (upserts); the item goes back to the queue
+                hub.complete([item["key"]], "failed", error="time budget used up before the item finished")
+                break
             except Exception as e:                      # one bad item must not stop the worker; the hub retries it later
                 hub.failure("item", item["key"][:200], f"{type(e).__name__}: {e}"[:300])
                 hub.complete([item["key"]], "failed", error=f"{type(e).__name__}: {e}"[:200])

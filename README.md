@@ -8,13 +8,18 @@ one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks 
 |---|---|---|
 | `nhai` | nhai.gov.in (Angular + Drupal JSON API) | `-nhai-tenders`, `-nhai-tender-archive`, `-nhai-pages` |
 | `morth` | morth.gov.in (Angular + Laravel JSON API) | `-morth-documents` |
+| `mes` | mes.gov.in (Drupal 11 tables) | `-mes-works` |
 
-Documents go to the family bucket as `pdf/`, `ocr-needed/` (scans without a text layer) and `docs/`. What each site offers, what
-is behind a login, and what comes next: [DISCOVERY.md](DISCOVERY.md). These sites answer Indian addresses only.
+Documents go to the family bucket as `pdf/` (with the extracted text beside each as `.pdf.txt`), `ocr-needed/` (scans without a
+text layer) and `docs/`. Where the records and files end up and what they show: [DATA.md](DATA.md). What each site offers, what is
+behind a login, and what comes next: [DISCOVERY.md](DISCOVERY.md).
+
+The sites drop some foreign hosting addresses (the team box among them); GitHub's runners get through. To run locally from the box,
+send the requests through an Indian exit: `ALL_PROXY=socks5h://127.0.0.1:1080 NO_PROXY=127.0.0.1,localhost` (and `pip install pysocks`).
 
 Run one queue item without the hub: `python crawl.py --local nhai '{"kind": "page", "nid": "publication-rating-dpr-consultants"}'`.
-Add a site: write `adapters/<site>.py` with `run(ctx, payload)` and pure `parse_*` functions, saved responses in `tests/pages/`, then
-a project in `family.py`.
+Add a site: write `adapters/<site>.py` with `run(ctx, payload)` and pure `parse_*` functions, saved responses in `tests/pages/`, a
+project in `family.py`, and a light `scrape-check --project contractor-registration-ci-<site>` step in `.github/workflows/check.yml`.
 
 The rest of this README is the template's guide.
 

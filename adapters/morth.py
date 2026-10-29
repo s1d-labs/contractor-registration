@@ -3,9 +3,10 @@
 Every document page (orders-and-notices, guidelines, gazettes-notifications, ...) answers with the same shape:
 page.files = groups [{name, files_data: [{title, file, published_date, ...}]}], so one handler serves them all.
 
-Queue item payload: {"slug": "orders-and-notices", "files_re": "debar|blacklist|..."}
-Every document gets a record. A document's file is downloaded only when `files_re` matches "<group> <title>" (or `files_re` is "."),
-which keeps a metadata crawl of ~7,000 PDFs cheap; widen the pattern in family.py to fetch more.
+Queue item payload: {"slug": "orders-and-notices", "part": 0, "parts": 22, "files_re": "."}
+An item handles the documents whose id falls in its part (doc_id % parts), so a page of 2,500 documents is spread over many
+items. Every document gets a record; its file is downloaded when `files_re` matches "<group> <title>" ("." = every file).
+`contractor_related` marks debarment, empanelment, rating and contract documents for analysis.
 """
 import re
 from urllib.parse import quote
@@ -15,6 +16,8 @@ from adapters.common import clean, sha1
 SITE = "https://morth.gov.in"
 API = SITE + "/backend/api"
 HEADERS = {"Referer": SITE + "/", "Accept": "application/json"}
+RELEVANT = re.compile(r"debar|blacklist|suspen|empanel|enlist|rating|contractor|concession|consultan|\brfp\b|\brfq\b|prequalif|"
+                      r"model (contract|concession)|\bEPC\b|\bHAM\b|\bBOT\b|bidder|tender", re.I)
 
 
 def file_url(file):
@@ -51,10 +54,11 @@ def run(ctx, payload):
                       headers=HEADERS, timeout=120)
     if js is None:
         return None
-    docs = parse_documents(js, slug)
+    part, parts = payload.get("part", 0), max(1, payload.get("parts", 1))
+    docs = [d for d in parse_documents(js, slug) if int(d["doc_id"], 16) % parts == part]
     fetch = re.compile(payload.get("files_re") or "$^", re.I)
     for d in docs:
-        data = dict(d)
+        data = {**d, "contractor_related": bool(RELEVANT.search(f"{d['group']} {d['title']}"))}
         if d["url"] and fetch.search(f"{d['group']} {d['title']}"):
             data["file"] = ctx.download(d["url"], f"{slug}/{re.sub(r'[^a-z0-9]+', '-', d['group'].lower()).strip('-')[:50] or 'ungrouped'}", HEADERS)
         ctx.record(f"{slug}-{d['doc_id']}", data)

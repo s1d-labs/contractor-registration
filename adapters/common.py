@@ -18,8 +18,8 @@ from urllib.parse import unquote, urlparse
 import requests
 
 UA = "s1d-labs scraper (https://github.com/s1d-labs)"
-MAX_TEXT = 100_000              # characters of PDF text kept in a record
-MAX_PDF_PAGES = 60              # pages read for text; the PDF itself is stored whole
+RECORD_TEXT = 20_000            # characters of PDF text kept in the record; the whole text is stored next to the PDF as .txt
+MAX_PDF_PAGES = 400             # pages read for text; the PDF itself is stored whole
 MAX_FILE_BYTES = 80 * 1024 * 1024
 DOC_EXT = {"pdf", "doc", "docx", "xls", "xlsx", "xlsm", "csv", "ppt", "pptx", "zip", "rar", "odt", "ods", "txt", "rtf"}
 SIZE = re.compile(r"\(\s*([\d.,]+\s*[KMG]?B)\s*\)", re.I)
@@ -100,15 +100,20 @@ class LocalHub:
         return out
 
 
+class TimeUp(Exception):
+    """The run's time budget (SCRAPE_MAX_HOURS) is used up: the item is handed back unfinished and retried later."""
+
+
 class Ctx:
     """What an adapter works with: requests (counted, spaced by the hub's delay), records, files."""
 
-    def __init__(self, hub, session=None, project=""):
+    def __init__(self, hub, session=None, project="", deadline=None):
         self.hub = hub
         self.session = session or requests.Session()
         self.session.headers["User-Agent"] = UA
         self.project = project
         self.last = 0.0
+        self.deadline = deadline
 
     def pause_if_held(self):
         while self.hub.settings.get("paused"):
@@ -117,6 +122,8 @@ class Ctx:
     def request(self, method, url, **kw):
         """Response for a 200 answer, else None (counted for the hub's throttle). Never retries in a tight loop."""
         self.pause_if_held()
+        if self.deadline and time.time() > self.deadline:
+            raise TimeUp("time budget used up")
         gap = max(0.5, self.hub.settings.get("delay_ms", 0) / 1000)
         time.sleep(max(0.0, self.last + gap - time.time()))
         t = time.time()
@@ -152,7 +159,8 @@ class Ctx:
 
     def download(self, url, section, headers=None):
         """Fetch a document and store it. PDFs with no text layer go to ocr-needed/, other PDFs to pdf/, the rest to docs/.
-        Returns {path, bytes, sha256, ext, pages, needs_ocr, text} or None."""
+        A PDF's whole text is stored beside it as <path>.txt. Returns {path, bytes, sha256, ext, pages, needs_ocr, text_path,
+        text_chars, text (first RECORD_TEXT characters)} or None."""
         r = self.request("GET", url, headers=headers or {}, timeout=120)
         if r is None:
             self.hub.failure("download", url[:200], "document did not load")
@@ -172,9 +180,13 @@ class Ctx:
         name = safe_name(Path(urlparse(url).path).name or "file")
         path = f"{folder}/{section}/{sha1(url)[:8]}-{name}"
         ctype = r.headers.get("Content-Type", "application/octet-stream").split(";")[0]
-        stored = self.hub.upload_many([(path, data, ctype)])[0]
-        return {"path": path, "bytes": stored.get("bytes", len(data)), "sha256": stored.get("sha256"), "ext": ext,
-                "pages": pages, "needs_ocr": ocr, "text": text[:MAX_TEXT]}
+        files = [(path, data, ctype)]
+        if text.strip():
+            files.append((path + ".txt", text.encode("utf-8"), "text/plain"))
+        stored = self.hub.upload_many(files)[0]
+        return {"path": path, "bytes": stored.get("bytes", len(data)), "sha256": stored.get("sha256"), "ext": ext, "pages": pages,
+                "needs_ocr": ocr, "text_path": path + ".txt" if len(files) > 1 else None, "text_chars": len(text),
+                "text": text[:RECORD_TEXT]}
 
 
 class PageWalker(HTMLParser):

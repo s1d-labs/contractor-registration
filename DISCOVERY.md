@@ -12,7 +12,7 @@ Checked through an Indian exit (Delhi VPS, SOCKS tunnel). The team box's own IP 
 | pmgsy.nic.in | blocked | **blocked** (SOCKS/TCP times out) |
 | omms.nic.in, ommas.nic.in | no DNS | no DNS (real OMMAS hostname unknown) |
 
-GitHub Actions runners **reach nhai.gov.in and morth.gov.in** (check workflow, 2026-10-28: scrape-check all PASS on a GitHub runner).
+GitHub Actions runners **reach nhai.gov.in and morth.gov.in** (check workflow, 2026-10-28: scrape-check all PASS on a GitHub runner); mes.gov.in is checked by the same workflow.
 CPWD and PMGSY from runners are not tested yet.
 
 ## Family verdict
@@ -40,20 +40,22 @@ No pair shares a platform, so the "family = one platform" rule does not hold for
 
 | Project | Site | Queue | Records | Files |
 |---|---|---|---|---|
-| `contractor-registration-nhai-tenders` | nhai.gov.in | 6 pages of `tenderlist` (242 live) | one per tender, with `tenderdetail` (dates, tender no, documents), `is_empanelment` flag | all tender documents |
-| `contractor-registration-nhai-tender-archive` | nhai.gov.in | 222 pages over 8 archive endpoints (2018-2025, ~10,900 tenders) | as above | only for empanelment calls (RFE / EOI / enlistment); other document URLs kept in the record |
+| `contractor-registration-nhai-tenders` | nhai.gov.in | 6 pages of `tenderlist` (242 live) | one per tender with `tenderdetail` (dates, tender no, documents) and an `is_empanelment` flag | all tender documents |
+| `contractor-registration-nhai-tender-archive` | nhai.gov.in | 223 pages over 8 archive endpoints (2018-2025, ~10,900 tenders) | as above | all tender documents (~5 MB a tender) |
 | `contractor-registration-nhai-pages` | nhai.gov.in | 7 CMS pages + `commontype` blacklisted-debarred-firms | ratings documents (DPR, AE/IE, contractor), debarment orders (date, order no, subject), standard RFP/RFQ documents, procurement manual, NHAI web-application catalogue (links) | all linked documents |
-| `contractor-registration-morth-documents` | morth.gov.in | 8 document pages (~7,000 documents) | one per document: group, title, dates, wing, circular no, URL | documents matching debarment / blacklist / suspension / empanelment / rating / contractor / consultant / concession / RFP / RFQ |
+| `contractor-registration-morth-documents` | morth.gov.in | 74 items (8 document pages, ~100 documents an item) | one per document: group, title, dates, wing, circular no, URL, `contractor_related` flag | every document (~7,000) |
+| `contractor-registration-mes-works` | mes.gov.in | 30 pages | product approval letters, consolidated list of approved products (firm, product, approval letter, valid-up-to), approved / enlisted consultant lists, contract policy letters | every attachment |
 
 Files are stored in the family bucket under `<project>/`:
 
 ```
-pdf/<section>/<hash8>-<name>.pdf          PDFs with a text layer (text is also in the record, up to 100k chars)
-ocr-needed/<section>/<hash8>-<name>.pdf   scanned PDFs: no text layer, queued for a later OCR pass
+pdf/<section>/<hash8>-<name>.pdf          PDFs with a text layer
+pdf/<section>/<hash8>-<name>.pdf.txt      their whole extracted text (the record keeps the first 20,000 characters)
+ocr-needed/<section>/<hash8>-<name>.pdf   scanned PDFs: no text layer, kept for a later OCR pass
 docs/<section>/<hash8>-<name>.<ext>       doc, docx, xls, xlsx, zip, ...
 ```
 
-The record of each stored file has `path`, `sha256`, `bytes`, `pages`, `needs_ocr` and `text`.
+The record of each stored file has `path`, `sha256`, `bytes`, `pages`, `needs_ocr`, `text_path`, `text_chars` and `text`.
 
 ## Login-only sections (links only, not scraped)
 
@@ -70,7 +72,9 @@ The record of each stored file has `path`, `sha256`, `bytes`, `pages`, `needs_oc
 
 ## Next scopes
 
-- MES (Drupal): tenders (~5,350), product approvals, approved-consultant lists: an `mes` adapter for Drupal table pages.
+- MES tenders: not queued, `gepnic-defproc` already has them (7 of 7 sampled CPPP ids, 552,817 MES records). The `mes` adapter reads
+  `tenders` pages too (`{"path": "tenders", "page": N}`) if they are ever needed.
+
 - IREPS open report: item/vendor counts per directorate (`itemVendorCountReport.do`).
 - RDSO "list of items with few sources" (`view_section.jsp?lang=1&id=0,5,6634`).
 - NHAI Power BI report of debarred contractors (public embed; no table behind the API).
