@@ -9,13 +9,8 @@ text is on home.s1d.me → Docs → Scraper guide (Part 2), and on team boxes at
 
 - `family.py` holds the projects, targets, env, queue items and health checks; `scrape.json` the setup steps and tasks; the task
   scripts do the scraping. After changing `family.py`, the **setup** workflow (Actions → setup) applies it to the hub.
-- This family has one task (`crawl.py`) and one adapter per site in `adapters/` (`nhai`, `morth`, `mes`), picked by the project's
-  `env.ADAPTER`. Each adapter has pure `parse_*` functions tested on saved responses (`tests/test_adapters.py`, `tests/pages/`) and
-  `run(ctx, payload)` for one queue item; `adapters/common.py` holds the counted requests, document storage and PDF text.
-- `python crawl.py --local <adapter> '<payload json>'` runs one queue item without the hub (records on stdout, files in `./data/`).
-  From the team box the sites need an Indian exit (`ALL_PROXY=socks5h://...`, `NO_PROXY=127.0.0.1,localhost`); GitHub runners reach them.
-- `scrape-check` runs setup and a task against a local stand-in hub and reports what works. The **check** workflow runs it per adapter on
-  CI-only projects (`contractor-registration-ci-<site>`) with light items: on a real project it would run that queue's first, heavy items.
+- `parse()` is pure and tested on saved pages (`tests/`); `python crawl.py --local <url>` runs one page without the hub;
+  `scrape-check` runs setup and a task against a local stand-in hub and reports what works (also run by the **check** workflow).
 - The repo is public; uploads go through `hub.upload_many` with signed links, so no storage keys are needed here.
 - The hub's speed control runs on the request metrics (`n_http`, `t_http_s`, `http_<code>`, `http_error`) and is applied through
   `hub.settings`; a task exits when the queue is empty and the runner asks for the next one.
