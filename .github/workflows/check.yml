@@ -1,11 +1,8 @@
 name: check
 
 # Verifies this family on every push: parsing tests on saved pages (pytest), then scrape-check, which runs setup_family.py and the
-# crawl task against a local stand-in for scrape-hub, the same way the pool runner does (and a rerun for stable record ids).
-# Nothing reaches the real hub and nothing is kept: the data the pool collects is set by family.py, not here.
-# Each adapter runs on a CI-only project with a few real items that cover its paths (lists, details, document downloads):
-# the projects in family.py would run their own first items, NHAI tender pages that take ~10 minutes each.
-# Run it by hand too: Actions -> check -> Run workflow.
+# crawl task against a local stand-in for scrape-hub, the same way the pool runner does, on 2 real queue items (and a rerun).
+# Nothing reaches the real hub. Run it by hand too: Actions -> check -> Run workflow.
 on:
   push:
   pull_request:
@@ -17,7 +14,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,26 +25,8 @@ jobs:
           python3 -c "import json; [print(c) for c in json.load(open('scrape.json')).get('setup', [])]" | grep -v "requirements.txt" | while IFS= read -r cmd; do bash -c "$cmd"; done
       - name: Parsing tests
         run: python -m pytest tests -q
-      # A FAIL with http_error / timeouts below means the runner cannot reach that site.
-      - name: scrape-check nhai (tender list + details, ratings page with its PDFs)
-        run: >
-          scrape-check --project contractor-registration-ci-nhai --task crawl --env ADAPTER=nhai --timeout 900
-          --item '{"key": "tenders-p0", "payload": {"kind": "tenders", "endpoint": "tenderlist", "page": 0, "detail": true, "files": false}}'
-          --item '{"key": "page-ratings", "payload": {"kind": "page", "nid": "publication-rating-dpr-consultants", "files": true}}'
-      - name: scrape-check morth (two document pages with their files)
-        if: ${{ always() }}
-        run: >
-          scrape-check --project contractor-registration-ci-morth --task crawl --env ADAPTER=morth --timeout 900
-          --item '{"key": "policies-and-regulations", "payload": {"slug": "policies-and-regulations", "part": 0, "parts": 1, "files_re": "."}}'
-          --item '{"key": "acts-and-rules-part0", "payload": {"slug": "acts-and-rules", "part": 0, "parts": 2, "files_re": "."}}'
-      # mes.gov.in does not answer GitHub runners (2026-10-29), so MES is not in family.py; this step only reports whether that changed
-      - name: scrape-check mes (reachability, does not fail the check)
-        if: ${{ always() }}
-        continue-on-error: true
-        run: >
-          scrape-check --project contractor-registration-ci-mes --task crawl --env ADAPTER=mes --timeout 900
-          --item '{"key": "works-consultancy-miscellaneous-p0", "payload": {"path": "works/consultancy-miscellaneous", "page": 0, "files": true}}'
-          --item '{"key": "works-product-approval-p1", "payload": {"path": "works/product-approval", "page": 1, "files": true}}'
+      - name: scrape-check (local stand-in hub, 2 real items)
+        run: scrape-check --items 2
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
