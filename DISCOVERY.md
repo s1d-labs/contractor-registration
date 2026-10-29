@@ -12,7 +12,7 @@ Checked through an Indian exit (Delhi VPS, SOCKS tunnel). The team box's own IP 
 | pmgsy.nic.in | blocked | **blocked** (SOCKS/TCP times out) |
 | omms.nic.in, ommas.nic.in | no DNS | no DNS (real OMMAS hostname unknown) |
 
-GitHub Actions runners **reach nhai.gov.in and morth.gov.in** (check workflow, 2026-10-28: scrape-check all PASS on a GitHub runner); mes.gov.in is checked by the same workflow.
+GitHub Actions runners **reach nhai.gov.in and morth.gov.in** (check workflow, 2026-10-28: scrape-check all PASS on a GitHub runner). **mes.gov.in does not answer GitHub runners** (2026-10-29: every request a connection error), so MES is not in the pool; `adapters/mes.py` is ready for an Indian runner.
 CPWD and PMGSY from runners are not tested yet.
 
 ## Family verdict
@@ -29,7 +29,7 @@ No pair shares a platform, so the "family = one platform" rule does not hold for
 
 1. **CPWD enlistment lists**: no public list of enlisted contractors found. CEMS (`cems.cpwd.gov.in`) exposes rule books 2020-2026 (PDFs on cpwd.gov.in, blocked), circulars (ASP.NET postbacks), the category/class matrix (Buildings & Roads: Special, I Super, I AAA, I AA, I A, I-V; Horticulture: I A, I-IV), and an eligibility calculator (`CheckEligibility.aspx`, ddlCategory/ddlClass). The contractor list is behind login. cpwd.gov.in itself is unreachable.
 2. **State PWD / WRD / RWD / PHED**: not on any of these four sites; each state needs its own discovery.
-3. **MES**: mes.gov.in has `/tenders` (~535 pages x 10, title/start/end/PDF), `/works/product-approval` (~26 pages of approval letters + "list of approved products as on 15 Oct 2026" PDF, scanned, needs OCR), `/works/consultancy-miscellaneous` (consolidated list of approved consultants, PDF, Aug 2025; renewal letters; enlistment policy Feb 2025). The enlistment portal CCEP (`egov.mes.gov.in/CCEP/login`) and Product Approval Portal (`/PAP/login`) are login-only.
+3. **MES**: mes.gov.in has `/tenders` (~535 pages x 10, title/start/end/PDF), `/works/product-approval` (~26 pages of approval letters + "list of approved products as on 15 Oct 2026" PDF: firm, product, approval letter, valid-up-to; it has a text layer), `/works/consultancy-miscellaneous` (consolidated list of approved consultants, PDF, Aug 2025; renewal letters; enlistment policy Feb 2025). The enlistment portal CCEP (`egov.mes.gov.in/CCEP/login`) and Product Approval Portal (`/PAP/login`) are login-only.
 4. **RDSO / railway vendors**: RDSO's UVAM link goes to IREPS `cvapApprovalofVendorAnony.jsp`. The vendor directory (`vndrDirectoryAnon.do`) and item master (`viewItemMasterAnon.do`) need a guest mobile number + OTP, so they are not scrapeable without sign-in. Open: `itemVendorCountReport.do` (item/vendor counts per directorate, no names). Not yet checked: RDSO "list of items with few sources" (`view_section.jsp?lang=1&id=0,5,6634`).
 5. **NHAI / MoRTH**:
    - NHAI `tenderlist` (242 live, fields: id, title, publish_date, tender_no, bid end/opening dates); `get_category` (vid=tenderdepartment/tendercategory); `commontype` (tid=blacklisted-debarred-firms: a Power BI embed + the internal page "individuals/agencies debarred by MoRTH/NHAI/NHIDCL/PWDs"); `rest_api` (nid=publication-rating-dpr-consultants: DPR/AE/IE consultant and contractor ratings); contract-management circulars.
@@ -44,7 +44,6 @@ No pair shares a platform, so the "family = one platform" rule does not hold for
 | `contractor-registration-nhai-tender-archive` | nhai.gov.in | 223 pages over 8 archive endpoints (2018-2025, ~10,900 tenders) | as above | all tender documents (~5 MB a tender) |
 | `contractor-registration-nhai-pages` | nhai.gov.in | 7 CMS pages + `commontype` blacklisted-debarred-firms | ratings documents (DPR, AE/IE, contractor), debarment orders (date, order no, subject), standard RFP/RFQ documents, procurement manual, NHAI web-application catalogue (links) | all linked documents |
 | `contractor-registration-morth-documents` | morth.gov.in | 74 items (8 document pages, ~100 documents an item) | one per document: group, title, dates, wing, circular no, URL, `contractor_related` flag | every document (~7,000) |
-| `contractor-registration-mes-works` | mes.gov.in | 30 pages | product approval letters, consolidated list of approved products (firm, product, approval letter, valid-up-to), approved / enlisted consultant lists, contract policy letters | every attachment |
 
 Files are stored in the family bucket under `<project>/`:
 

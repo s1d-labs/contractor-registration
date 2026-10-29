@@ -93,20 +93,11 @@ PROJECTS = [
                                "expected": ceil(n / ceil(n / DOCS_PER_ITEM))}}
                   for slug, n in MORTH_PAGES.items() for k in range(ceil(n / DOCS_PER_ITEM))],
     },
-    {
-        "name": f"{FAMILY}-mes-works",
-        "title": "MES product approvals, approved consultants and contract policies",
-        "task": "crawl", "target": "mes.gov.in", "env": _env("mes", "https://mes.gov.in"),
-        "probe": f"{FAMILY}:mes.gov.in",
-        "unit_label": "page", "record_label": "letter / list",
-        "items": [{"key": f"{path.replace('/', '-')}-p{k}", "payload": {"path": path, "page": k, "files": True, "expected": 10}}
-                  for path, pages in MES_WORKS.items() for k in range(pages)],
-    },
+    # MES (adapters/mes.py) is not queued: mes.gov.in does not answer GitHub runners (check workflow, 2026-10-29).
 ]
 
 # health checks the hub runs every minute; work for a project holds while its probe fails
 PROBES = [
     {"name": f"{FAMILY}:nhai.gov.in", "url": "https://nhai.gov.in/", "expect": "National Highways Authority of India"},
     {"name": f"{FAMILY}:morth.gov.in", "url": "https://morth.gov.in/", "expect": "Ministry of Road Transport"},
-    {"name": f"{FAMILY}:mes.gov.in", "url": "https://mes.gov.in/", "expect": "Military Engineer Services"},
 ]

@@ -40,8 +40,10 @@ jobs:
           scrape-check --project contractor-registration-ci-morth --task crawl --env ADAPTER=morth --timeout 900
           --item '{"key": "policies-and-regulations", "payload": {"slug": "policies-and-regulations", "part": 0, "parts": 1, "files_re": "."}}'
           --item '{"key": "acts-and-rules-part0", "payload": {"slug": "acts-and-rules", "part": 0, "parts": 2, "files_re": "."}}'
-      - name: scrape-check mes (approved-consultant lists and a product-approval page with their PDFs)
+      # mes.gov.in does not answer GitHub runners (2026-10-29), so MES is not in family.py; this step only reports whether that changed
+      - name: scrape-check mes (reachability, does not fail the check)
         if: ${{ always() }}
+        continue-on-error: true
         run: >
           scrape-check --project contractor-registration-ci-mes --task crawl --env ADAPTER=mes --timeout 900
           --item '{"key": "works-consultancy-miscellaneous-p0", "payload": {"path": "works/consultancy-miscellaneous", "page": 0, "files": true}}'

@@ -8,7 +8,7 @@ one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks 
 |---|---|---|
 | `nhai` | nhai.gov.in (Angular + Drupal JSON API) | `-nhai-tenders`, `-nhai-tender-archive`, `-nhai-pages` |
 | `morth` | morth.gov.in (Angular + Laravel JSON API) | `-morth-documents` |
-| `mes` | mes.gov.in (Drupal 11 tables) | `-mes-works` |
+| `mes` | mes.gov.in (Drupal 11 tables) | none yet: mes.gov.in does not answer GitHub runners |
 
 Documents go to the family bucket as `pdf/` (with the extracted text beside each as `.pdf.txt`), `ocr-needed/` (scans without a
 text layer) and `docs/`. Where the records and files end up and what they show: [DATA.md](DATA.md). What each site offers, what is
