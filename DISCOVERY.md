@@ -1,124 +1,236 @@
-# Discovery notes (2026-10-28, updated 2026-11-01)
+# C01–C06: Contractor, vendor and empanelment registers (planned sources, india.s1d.me)
 
-Checked through an Indian exit: a Delhi VPS (SOCKS tunnel) on 2026-10-28, the hub's Mumbai proxies (`myproxy`) on 2026-11-01.
-The team box (Germany) is dropped at TCP level by all of these hosts.
+**Status:** ⏳ RUNNING. 5 of the 6 planned sources have their open data collected or ready; C04 (RDSO vendors) is ⛔ BLOCKED behind
+an IREPS mobile-OTP sign-in, and MES (C03) stopped answering the proxies tonight.
+**Updated:** 1 Nov 2026 21:28 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@4de2805`
+(branch `agreements-gujarat-rdso`, pushed, PR open; `main` = `79de30a`, PR #5)
+**Projects:** `-nhai-tenders`, `-nhai-tender-archive`, `-nhai-pages`, `-morth-documents` (GitHub runners, direct);
+`-mes-works`, `-cpwd-contractors`, `-pmgsy-contractors` (proxy `IN`); new on the branch, not on the hub yet: `-pmgsy-agreements`,
+`-state-pwd`, `-rdso-items` (proxy `IN`). All names start with `contractor-registration`.
+**Data:** `select … from public.records where project = 'contractor-registration-<…>'` · Metabase "Team data (scrape_hub)" ·
+bucket `s1d-labs-trideep`, `contractor-registration-<…>/` · query guide: [DATA.md](DATA.md)
+**Previous report:** first report in this format (the earlier discovery notes are folded into [5](#5-the-sources)).
 
-## Reachability
+---
 
-| Host | Team box | Delhi VPS / Mumbai proxy | GitHub runners |
-|---|---|---|---|
-| morth.gov.in, nhai.gov.in | blocked | OK | OK (pool, 2026-10-29) |
-| mes.gov.in | blocked | OK | **blocked**: the pool uses `proxy="IN"` |
-| pmgsy.dord.gov.in (OMMAS citizen reports, the old omms.nic.in) | blocked | OK | not tested: the pool uses `proxy="IN"` |
-| rdso.indianrailways.gov.in, eprocure.gov.in, cems.cpwd.gov.in, ireps.gov.in, egov.mes.gov.in, emarg.gov.in, pmgsytenders.gov.in | blocked | OK | not tested |
-| erp.cpwd.gov.in (CPWD's new portal), cems.cpwd.gov.in | blocked | OK | not tested: the pool uses `proxy="IN"` |
-| cpwd.gov.in | blocked | **blocked** (TLS reset; real Chrome too) | not tested |
-| pmgsy.nic.in, omms.dord.gov.in, geosadak-pmgsy.nic.in | blocked | **blocked** (times out / proxy 502) | not tested |
-| omms.nic.in, ommas.nic.in | no DNS | no DNS | |
+## Contents
+1. [TL;DR](#1-tldr)
+2. [Where things stand](#2-where-things-stand) · [2.1 Per planned source](#21-per-planned-source-c01c06)
+3. [Pick up here](#3-pick-up-here)
+4. [What stands out](#4-what-stands-out)
+5. [The sources](#5-the-sources) · [5.1 Reachability](#51-reachability) · [5.2 Site map](#52-site-map)
+   · [5.3 Behind a login, OTP or key](#53-behind-a-login-otp-or-key)
+6. [How it is collected](#6-how-it-is-collected)
+7. [The data](#7-the-data)
+8. [Verification](#8-verification)
+9. [Known gaps and quality issues](#9-known-gaps-and-quality-issues)
+10. [Risks and open decisions](#10-risks-and-open-decisions)
+11. [Next steps](#11-next-steps)
 
-**The hub's health checks** run from the hub's own server, which these sites have not answered since 2026-10-30 02:00 CET (every
-India-only target on scrape.s1d.me fails, other families' too). A failing probe holds a project's work, so this family's projects
-name no probe; the checks stay registered for the dashboard. The hub owner can fix it by checking India-only targets through a proxy.
+---
 
+## 1. TL;DR
+- **Collected (hub, 1 Nov 21:28 CET): 87,684 records** in 6 projects: PMGSY contractor master **59,843** (all 296 items done),
+  CPWD enlisted contractors **9,736** + 9 debarred + 20 suspended, NHAI tenders **10,648** + 251 live, MoRTH documents **6,934**,
+  NHAI pages 243.
+- **Ready on the branch, tested end to end through an Indian proxy:** PMGSY works awarded (Sikkim 1,263, Uttar Pradesh 21,140
+  works), Gujarat R&B registers (**8,113** civil + **1,334** electrical contractors), RDSO items with few sources (133 items).
+- **Biggest problem:** `-mes-works` 0 / 34. Since about 20:54 CET mes.gov.in drops the TLS handshake from the hub's proxies
+  (`site did not answer`, 340 connection errors). It answered the same proxies earlier today.
+- **No captcha stands in the way of any open data here.** What is left is behind accounts: an IREPS guest login with mobile OTP
+  (RDSO vendor names), CPWD and MES portal logins. See [5.3](#53-behind-a-login-otp-or-key).
+- **Next:** trideep merges the PR, then runs Actions → setup (the three new projects go into the pool).
 
-## Family verdict
+## 2. Where things stand
 
-| Pair | Verdict | Why |
-|---|---|---|
-| MoRTH + NHAI | **Same look, not the same platform** | Both are Angular hash-route SPAs, but different builds and backends. NHAI: older Angular (webpack), Drupal backend, `POST https://nhai.gov.in/nhai/api/<endpoint>` with multipart form fields. MoRTH: Angular 17+ (esbuild), Laravel backend, `GET https://morth.gov.in/backend/api/<page-slug>?page=&per_page=` returning JSON. Two adapters, one shared "SPA + JSON" helper at most. |
-| MES + CPWD | **Not a family** | mes.gov.in is Drupal 11 (server-rendered tables, `?page=N`, PDFs). CPWD enlistment is CEMS, ASP.NET WebForms (`__VIEWSTATE` postbacks). Different platforms. |
-| RDSO | Own thing | Legacy JSP CMS (`view_section.jsp?id=0,5,...`); the vendor data lives on IREPS (Struts). |
+| Project | State | Items done / total | Failed · pending · running | Records stored | Pace (24 h) | ETA |
+|---|---|---:|---|---:|---:|---|
+| `-pmgsy-contractors` | ✅ COMPLETE | 296 / 296 | 0 · 0 · 0 | 59,843 | 296 | monthly refresh |
+| `-cpwd-contractors` | ✅ COMPLETE | 114 / 114 | 0 · 0 · 0 | 9,765 | 114 | monthly refresh |
+| `-nhai-tender-archive` | ✅ COMPLETE | 223 / 223 | 0 · 0 · 0 | 10,648 | 0 | done 30 Oct |
+| `-nhai-tenders` | ✅ COMPLETE | 14 / 14 | 0 · 0 · 0 | 251 | 8 | daily refresh |
+| `-nhai-pages` | ✅ COMPLETE | 16 / 16 | 0 · 0 · 0 | 243 | 8 | weekly refresh |
+| `-morth-documents` | ✅ COMPLETE | 82 / 82 | 0 · 0 · 0 | 6,934 | 9 | weekly refresh |
+| `-mes-works` | ⚠️ STALLED | 0 / 34 | 32 · 0 · 2 | 0 | 0 | none: site refuses the proxies |
+| `-pmgsy-agreements` | 🛠 BUILDING | 0 / 74 (not seeded) | — | — | — | ~37 × 30 s after setup |
+| `-state-pwd` | 🛠 BUILDING | 0 / 4 (not seeded) | — | — | — | minutes after setup |
+| `-rdso-items` | 🛠 BUILDING | 0 / 2 (not seeded) | — | — | — | minutes after setup |
 
-No pair shares a platform, so the "family = one platform" rule does not hold for these four. The practical choice is to keep this repo as a topical multi-adapter family (one project per site, a `parse_*` module per site) or split per platform later.
+- `queue.fetched` vs stored: PMGSY 119,459 vs 59,843 and CPWD 21,162 vs 9,765, because the first pass and the monthly items both ran
+  today and re-sent the same ids (upserts). Stored = the true count.
+- The hub's health checks for nhai.gov.in and morth.gov.in fail (ConnectTimeout from the hub's own server, since 30 Oct). No project
+  names a probe, so work is not held. Bucket: 63,686 objects / 48.0 GiB on 1 Nov (from the [DATA.md](DATA.md) report, not re-measured).
 
-## Scopes found
+### 2.1 Per planned source (C01–C06)
 
-1. **CPWD enlistment lists**: **found on CPWD's new portal, erp.cpwd.gov.in** (Liferay; cpwd.gov.in itself still resets
-   connections): *List of Contractors* → the enlisted contractors (9,736 on 2026-11-01: name, address, state, category, class,
-   date of enlistment, valid up to, debarment and suspension dates, status, the site's contractor id), *CPWD debarred
-   contractors* (9) and *contractors suspended for violating the EMD declaration* (20), all server-rendered tables, 200 rows a
-   page, no login (`adapters/cpwd.py`). The orders behind each row (PDFs) answer with a CPWD sign-in page, so only their links
-   are kept. *Non-CPWD debarred contractors* loads from a JSON service that refuses guests (404). Older notes: no public list
-   on CEMS. CEMS (`cems.cpwd.gov.in`) exposes rule books 2020-2026 (PDFs on cpwd.gov.in, blocked), circulars (ASP.NET postbacks), the category/class matrix (Buildings & Roads: Special, I Super, I AAA, I AA, I A, I-V; Horticulture: I A, I-IV), and an eligibility calculator (`CheckEligibility.aspx`, ddlCategory/ddlClass). The contractor list is behind login. cpwd.gov.in itself is unreachable.
-2. **State PWD / WRD / RWD / PHED**: not on any of these four sites; each state needs its own discovery.
-3. **MES**: mes.gov.in has `/tenders` (~535 pages x 10, title/start/end/PDF), `/works/product-approval` (~26 pages of approval letters + "list of approved products as on 15 Oct 2026" PDF: firm, product, approval letter, valid-up-to; it has a text layer), `/works/consultancy-miscellaneous` (consolidated list of approved consultants, PDF, Aug 2025; renewal letters; enlistment policy Feb 2025). The enlistment portal CCEP (`egov.mes.gov.in/CCEP/login`) and Product Approval Portal (`/PAP/login`) are login-only.
-4. **RDSO / railway vendors**: RDSO's UVAM link goes to IREPS `cvapApprovalofVendorAnony.jsp`. The vendor directory (`vndrDirectoryAnon.do`) and item master (`viewItemMasterAnon.do`) need a guest mobile number + OTP, so they are not scrapeable without sign-in. Open: `itemVendorCountReport.do` (item/vendor counts per directorate, no names). Not yet checked: RDSO "list of items with few sources" (`view_section.jsp?lang=1&id=0,5,6634`).
-5. **NHAI / MoRTH**:
-   - NHAI `tenderlist` (242 live, fields: id, title, publish_date, tender_no, bid end/opening dates); `get_category` (vid=tenderdepartment/tendercategory); `commontype` (tid=blacklisted-debarred-firms: a Power BI embed + the internal page "individuals/agencies debarred by MoRTH/NHAI/NHIDCL/PWDs"); `rest_api` (nid=publication-rating-dpr-consultants: DPR/AE/IE consultant and contractor ratings); contract-management circulars.
-   - MoRTH `orders-and-notices`: 2,177 documents, including a 38-document "Related to Debarment and Blacklisting" group and suspension/speaking orders naming firms. MoRTH tenders link out to eprocure / World Bank portals; no empanelment table.
-6. **PMGSY OMMAS**: the citizen reports moved to **pmgsy.dord.gov.in** (`/Home/CitizenPage`). Proposals → *Contractor
-   Information* is the **contractor master** per state, filterable by contractor status (Active / Inactive / **Blacklisted** /
-   Expired): company, contact person, state registration number, address, phones, e-mail and PAN (masked by the site: first five
-   and last character). It is an SSRS report with a CSV export (four requests a state and status; `adapters/pmgsy.py`). Sizes:
-   Uttar Pradesh 4,897 active, Sikkim 519; Assam lists 15 blacklisted, Bihar / MP / Rajasthan / Odisha / Maharashtra none.
-   Same site, not yet scraped: Work Awarded → *Agreement Details* (works with their contractor and agreement value; filters
-   state / district / year / batch / scheme), the dashboard's *KPI Based Contractors' Performance* (`/dbweb`), quality-monitor
-   grading abstracts. The officials' OMMAS is login-only (`pmgsygov.dord.gov.in`).
-
-## What the family scrapes now (family.py)
-
-| Project | Site | Queue | Records | Files |
+| ID | Planned source | Done | What we have | Not done, and why |
 |---|---|---|---|---|
-| `contractor-registration-nhai-tenders` | nhai.gov.in | 6 pages of `tenderlist` (242 live) | one per tender with `tenderdetail` (dates, tender no, documents) and an `is_empanelment` flag | all tender documents |
-| `contractor-registration-nhai-tender-archive` | nhai.gov.in | 223 pages over 8 archive endpoints (2018-2025, ~10,900 tenders); at most 5 of the 8 nhai.gov.in workers | as above | all tender documents (~3.5 MB a tender) |
-| `contractor-registration-nhai-pages` | nhai.gov.in | 7 CMS pages + `commontype` blacklisted-debarred-firms | ratings documents (DPR, AE/IE, contractor), debarment orders (date, order no, subject), standard RFP/RFQ documents, procurement manual, NHAI web-application catalogue (links) | all linked documents |
-| `contractor-registration-morth-documents` | morth.gov.in | 74 items (8 document pages, ~100 documents an item); weekly: each page once, new documents only | one per document: group, title, dates, wing, circular no, URL, `contractor_related` flag | every document (~7,000) |
-| `contractor-registration-mes-works` | mes.gov.in via Indian proxy | 30 table pages (product approval, consultancy, contract policy, technical information) + weekly first pages | one per table row with its columns | every attachment (approved products list, approved consultants, enlistment policy, approval letters) |
-| `contractor-registration-cpwd-contractors` | erp.cpwd.gov.in via Indian proxy | 55 pages of 200 + the debarred and suspended lists, again every month | one per contractor / row with its columns and order links | none (orders need a login) |
-| `contractor-registration-pmgsy-contractors` | pmgsy.dord.gov.in via Indian proxy | 37 states x 4 statuses, again every month | one per contractor (company, person, registration no, address, phones, e-mail, masked PAN, status) | the CSV export per state and status |
-| `contractor-registration-ocr` (off for now: `OCR = False`) | the family bucket | 485 batches of ~250 pages (16,081 scans, 111,705 pages; `queues/ocr.json.gz`) | one per scan: source project and path, the records that cite it, OCR text | `<source project>/<path>.txt` |
+| **C01** | CPWD enlistment lists (cpwd.gov.in) | ✅ | The register moved to **erp.cpwd.gov.in** (open): 9,736 enlisted contractors (name, address, state, category, class, enlistment date, valid up to, debarment / suspension dates, status), 9 debarred, 20 suspended for EMD declaration violations. Monthly refresh. | The order PDFs behind each row and the "non-CPWD debarred" list need a CPWD login. cpwd.gov.in itself resets every connection, Indian or not, so the DSR / manuals on it are out of reach. |
+| **C02** | State PWD / WRD / RWD / PHED registrations | 🟡 1 state | **Gujarat R&B:** registered civil contractors, classes AA to E-2 (8,113, as on 14-09-2026) and electrical contractors (1,334, as on 31-07-2026): division, firm, address, class, type of firm, registration and validity dates. On the branch. | Every other state: one discovery each. UP, Bihar, HP and MP PWD did not answer even through Indian exits (28 Oct). Gujarat's online registration (`rnbcontractor.com`) is a login portal. |
+| **C03** | MES enlistment (mes.gov.in) | 🟡 | Code done: approved products list and letters, consolidated approved consultants, enlistment policy, contract policy letters (34 table pages + weekly). | **0 stored:** mes.gov.in refuses the hub's proxies since 1 Nov ~20:54 CET. The contractor enlistment itself (CCEP) is login-only. MES tenders are already in `gepnic-defproc`. |
+| **C04** | RDSO / railway approved vendor directories | ⛔ | RDSO's own lists of items with **fewer than 3** (25) / **fewer than 5** (107) approved sources and with **no Indian source** (1), as on 03.06.2024: item id, item, sub-item, vendor count. On the branch. | **Vendor names:** the directory is IREPS UVAM (`vndrDirectoryAnon.do`), which needs a guest sign-in with a mobile number and OTP. The open item / vendor count report (`itemVendorCountReport.do`) now redirects to the login too. |
+| **C05** | NHAI / MoRTH empanelment | ✅ | NHAI tenders 2018-2026 (10,648 archive + 251 live, daily), consultant and contractor rating documents, NHAI debarment orders, MoRTH's 6,934 documents including the "debarment and blacklisting" group. 314 empanelment calls, 100 NHAI debarment rows and 38 MoRTH debarment orders per the [DATA.md](DATA.md) report. No captcha met: the JSON APIs are open. | NHAI's Power BI report of debarred firms (no table behind it). Scanned orders wait for OCR (16,081 scans in `ocr-needed/`, OCR off on purpose). |
+| **C06** | PMGSY OMMAS contractor master | ✅ | Moved to **pmgsy.dord.gov.in** (citizen reports). Contractor master of all 37 states × 4 statuses: **59,843** contractors (59,319 active, 329 inactive, 164 expired, **31 blacklisted**), PAN on 56,988 (masked by the site: first five and last character). Monthly. **New on the branch:** every work awarded per state (package, road, sanction date, sanctioned and awarded cost) and works awarded then terminated. | omms.nic.in is dead. The public reports never name the contractor of a work, so works and contractors cannot be joined from public data. The officials' OMMAS (`pmgsygov.dord.gov.in`) is login-only. |
 
-The live NHAI tenders are read every day (`tenders-<YYYYMMDD>-p<k>`), the NHAI pages every week. When OCR is on, projects with `OCR=1` read
-scans with tesseract as they store them.
+## 3. Pick up here
+- **Repo:** `~/contractor-registration` (branch `agreements-gujarat-rdso`, clean) · **Run tests:** `~/.venvs/cr/bin/python -m pytest -q tests`
+  (37 pass) · **Try one item:** `myproxy run ~/.venvs/cr/bin/python crawl.py --local statepwd '{"list": "gujarat-rnb-electrical"}'`
+- **Next action:** merge the PR for `agreements-gujarat-rdso`, then Actions → setup (or `gh workflow run setup.yml --ref main`).
+- **Waiting on:** trideep (merge); Sarthak, the hub owner (health checks through a proxy; the family's proxy cap, 4, is below
+  what its 6 proxied projects ask for); whether to sign in to IREPS for C04 ([10](#10-risks-and-open-decisions)).
 
-Files are stored in the family bucket under `<project>/`:
+## 4. What stands out
+1. **PMGSY blacklists are concentrated.** 31 blacklisted contractors in all of India: 15 in Assam, 13 in Jharkhand, 2 in Arunachal
+   Pradesh, 1 in Uttarakhand. Madhya Pradesh (6,169 contractors) and Bihar (5,553) list none.
+   *So what:* the blacklist reflects which states use the status field, not where contractors misbehave.
+2. **CPWD: 1,010 of 9,736 enlistments have lapsed** ("Enlistment Valid Upto" before today) but stay on the list. 30 rows carry a
+   debarment date, though CPWD's own debarred list has 9. 379 rows have no status (the rest "Current").
+3. **Gujarat lists renewals beside the old registration.** The same firm can appear with a 2024 and a 2026 registration (e.g.
+   *M/s JNP Infrastructure*, Surat, class AA). One Vadodara firm appears 4 times. 26 civil rows are exact repeats and collapse to
+   one record each: **8,087 distinct records from 8,113 rows**.
+4. **One package, two bridges with the same name.** In Sikkim, package `SK03P7P11R` holds two 20 m bridges both called
+   *Ramitey Khola* (₹201.19 and ₹190.47 lakh sanctioned). Work ids therefore include cost and length.
+5. **RDSO: items with no alternative source.** Sub-items like the *Spring Auto tensioning device for 2400 kgf* (OHE) and the
+   *25 W VHF digital radio set* have **0** approved vendors; the CCC copper wire rod (22.5–26 mm) has a single foreign source and
+   no Indian one. The lists are dated 03.06.2024 and have not been updated since.
+6. **The sites moved:** CPWD to erp.cpwd.gov.in, OMMAS to pmgsy.dord.gov.in. The planned-sources page still names the old hosts,
+   which is why it shows C01 and C06 as unreachable.
 
+## 5. The sources
+- No source needs an API key. None showed a captcha on the parts collected. Every one except nhai / morth answers **Indian
+  addresses only**. Rates seen: no 429s; NHAI answered 54 × 503 during the archive pass (29–30 Oct).
+
+### 5.1 Reachability
+
+| Host | Team box (DE) | Indian proxy | GitHub runners |
+|---|---|---|---|
+| nhai.gov.in, morth.gov.in | blocked | OK | OK |
+| erp.cpwd.gov.in, pmgsy.dord.gov.in | blocked | OK | blocked: pool uses `proxy="IN"` |
+| mes.gov.in | blocked | **refuses since 1 Nov ~20:54 CET** (TLS dropped after the client hello; OK earlier that day) | blocked |
+| rnb.gujarat.gov.in, rdso.indianrailways.gov.in | blocked | OK | not tested: pool uses `proxy="IN"` |
+| cpwd.gov.in | blocked | blocked (TLS reset, real Chrome too) | — |
+| omms.nic.in, ommas.nic.in / pmgsy.nic.in, omms.dord.gov.in | no DNS / blocked | no DNS / blocked | — |
+
+### 5.2 Site map
+
+| Source | What | URL / form | Notes |
+|---|---|---|---|
+| C01 | Enlisted / debarred / suspended contractors | `erp.cpwd.gov.in/web/cpwd/list-of-cpwd-enlisted-debarred-contractors`, `…/list-of-suspended-contractors-due-to-violation-of-emd-declaration` | Liferay portlets, `_<portlet>_cur` / `_delta` (≤ 200) |
+| C01 | Category / class matrix, eligibility | `cems.cpwd.gov.in/CheckEligibility.aspx` | open; the enlisted list on CEMS is login-only |
+| C02 | Gujarat R&B civil / electrical lists | `rnb.gujarat.gov.in/otherfile/Contractor Registration Final Data.pdf`, `…/Aayog Electrical Contractor Registration Data.pdf` | PDFs with a text layer, re-published every few months |
+| C03 | Approved products, consultants, policies | `mes.gov.in/works/product-approval?page=N`, `/works/consultancy-miscellaneous`, `/works-policies-data/contracts` | Drupal tables + PDFs |
+| C04 | Items with few sources | `rdso.indianrailways.gov.in/view_section.jsp?lang=0&id=0,5,6634` | 3 PDFs (`/uploads/D_13403_…`) |
+| C05 | NHAI tenders, pages | `POST nhai.gov.in/nhai/api/tenderlist`, `tenderdetail`, `tenderarchive*`, `rest_api`, `commontype` | multipart form fields |
+| C05 | MoRTH documents | `GET morth.gov.in/backend/api/<slug>?page=&per_page=` | JSON |
+| C06 | Contractor master | `pmgsy.dord.gov.in/MasterArea/Master/ContractorInformationLayout` → SSRS → CSV export | 4 requests per state × status |
+| C06 | Works awarded / terminated | `…/WorkAwardedArea/WorkAwarded/TendAgrDetailsLayout` → state summary → drill-through on the Total row (`249iT0:0` awarded, `293iT0:0` terminated) → CSV | report viewer postback |
+| C06 | Also open, not scraped | KPI contractors' performance (`/dbweb`), quality-monitor grading abstracts, Final Bill Payment (needs an agency choice) | aggregates |
+
+### 5.3 Behind a login, OTP or key
+
+What would open with an account, and what that account is. Nothing here is scraped. Signing in to automate collection needs the
+account owner's go-ahead and should be checked against the site's terms first. Officer logins are for government staff and are out.
+
+| Site | Gate | Who can get it | What it would add | Worth it? |
+|---|---|---|---|---|
+| **IREPS UVAM** (RDSO vendors, C04): `ireps.gov.in/epsn/cvap/admintab/vndrDirectoryAnon.do?activity=displayFirst&approvAgencyCode=-2`, `viewItemMasterAnon.do` | **guest sign-in: any mobile number + OTP** (no account) | anyone with an Indian mobile number | the approved vendor directory (vendor names per item and approving agency) and the item master: **the core of C04** | **Yes, the only route to C04 vendor names.** Each session needs a fresh OTP from the phone's owner (a manual step); the OTP itself cannot and should not be automated |
+| IREPS vendor / officer login | user id + password (+ digital signature for bidding) | registered railway vendors / officials | the firm's own tenders and bids | No: own-firm data only |
+| **CPWD ERP** (C01): order PDFs behind each row, "non-CPWD debarred" list | CPWD portal login | CPWD users (staff; registered contractors for their own records) | the debarment / suspension orders as documents | Low: the rows themselves are already open |
+| CPWD CEMS: `cems.cpwd.gov.in/ContractorLogin.aspx`, `/OfficerLogin.aspx` | contractor or officer login | enlisted contractors (own application) / CPWD officers | own enlistment file; officers see all | No (own data / officers only) |
+| **MES CCEP**: `egov.mes.gov.in/CCEP/login` | contractor / consultant account | firms applying for MES enlistment | the firm's own enlistment | No: no public enlisted list behind it |
+| MES PAP: `egov.mes.gov.in/PAP/login` | firm account | product-approval applicants | own applications (the approved list is already open) | No |
+| MES e-governance: `mes.bisag-n.gov.in/` (BMP, ECB, EMB, WBPMP, WEA, DWAP), `hrmciv.mes.gov.in` | department login | MES staff | internal budgets, measurement books | Out (officials) |
+| PMGSY OMMAS (officials): `pmgsygov.dord.gov.in` | department login | PIU / SRRDA / NRIDA staff | works ↔ contractor link, payments | Out (officials) |
+| Gujarat R&B registration: `rnbcontractor.com` | contractor account | firms registering with R&B | own registration | No: the register is already in the PDFs |
+| **data.gov.in (OGD) API** | free API key (sign-up with e-mail) | anyone | PMGSY / road datasets published there (not checked which); no key on this box (`~/.config/s1d/` has no `ogd.env`) | Maybe: check the catalogue before getting a key |
+| NHAI complaints: `complaint.nhai.org/complaintsregistration/loginpage.aspx` | citizen login | anyone | own complaints | No |
+
+**Captchas:** none of C01–C06's open data sits behind one. The planned-sources page marks NHAI as "captcha wall", but the
+JSON API used here answers without one. The login portals above have captchas on their sign-in forms; those belong to the
+login and are not to be solved automatically.
+
+## 6. How it is collected
+- **Code:** `crawl.py` (one task; `ADAPTER` env picks `adapters/<name>.py`); `adapters/common.py` (counted requests, document
+  storage with `seen/<sha1>.json` markers so unchanged documents are not fetched twice, refuses empty files and login pages);
+  `nhai.py`, `morth.py`, `mes.py`, `cpwd.py`, `pmgsy.py` (contractor master + works awarded), `statepwd.py` (state PDF registers,
+  read by word position), `rdso.py`, `ocr.py` (off).
+- **Queue:** one item = one page / list / state (× status). Keys carry the refresh period: `tenders-<YYYYMMDD>-p<k>` daily,
+  `-<YYYYwNN>` weekly, `-<YYYYmMM>` monthly. Setup runs daily at 07:00 IST (`setup.yml` cron) and adds them.
+- **Pace:** 0.5 s minimum between requests per worker, `max_workers` 2 per proxied project (1 for state-pwd and rdso). The family
+  may borrow 4 proxies at once; its 6 proxied projects ask for up to 10, so they take turns.
+- **Decision (trideep, 1 Nov 2026):** OCR stays off for now (load); scans wait in `ocr-needed/`.
+- **Decision (Claude, 1 Nov 2026):** no project names a health check while the hub's prober cannot reach Indian sites.
+
+## 7. The data
+Record ids and fields per project: [DATA.md → Projects and record ids](DATA.md#projects-and-record-ids). Example (PMGSY work):
+`30-awarded-…` → `{"state": "Sikkim", "district": "South", "block": "Namchi", "package": "SK03P7P11R", "work_type": "LSB",
+"work_name": "Bhalkhara Khola", "bridge_length_m": "20.000", "sanction_cost_lakh": "195.17", "awarded_cost_lakh": "193.25"}`
+
+| CPWD class | Contractors | | PMGSY state | Contractors |
+|---|---:|---|---|---:|
+| IV | 3,201 | | Madhya Pradesh | 6,169 |
+| V | 2,281 | | Bihar | 5,553 |
+| III | 2,015 | | Odisha | 5,348 |
+| II | 976 | | West Bengal | 4,978 |
+| I | 615 | | Assam | 2,954 |
+| I(A) / I(AA) / I(AAA) / I(Super) | 229 / 198 / 96 / 106 | | Uttarakhand | 2,720 |
+
+```sql
+select data->'columns'->>'Class', count(*) from public.records
+where project = 'contractor-registration-cpwd-contractors' and data->>'list' = 'contractors' group by 1 order by 2 desc;
+select data->>'state', data->>'company', data->>'registration_no' from public.records
+where project = 'contractor-registration-pmgsy-contractors' and data->>'contractor_status' = 'Blacklisted';
 ```
-pdf/<section>/<hash8>-<name>.pdf          PDFs with a text layer
-pdf/<section>/<hash8>-<name>.pdf.txt      their whole extracted text (the record keeps the first 20,000 characters)
-ocr-needed/<section>/<hash8>-<name>.pdf   scanned PDFs: no text layer, kept for a later OCR pass
-docs/<section>/<hash8>-<name>.<ext>       doc, docx, xls, xlsx, zip, ...
-```
+More queries: [DATA.md → How to work with it](DATA.md#how-to-work-with-it).
 
-The record of each stored file has `path`, `sha256`, `bytes`, `pages`, `needs_ocr`, `text_path`, `text_chars` and `text`.
-What has been collected, how to query it and what it shows: [DATA.md](DATA.md).
+## 8. Verification
+- **Tests:** 37 passed (`pytest tests`, offline, saved pages and PDFs). **CI:** `check` green on PR #5 (1 Nov 18:34 UTC); the
+  branch's `check` was running at writing time. **setup:** green, 1 Nov 19:52 UTC.
+- **scrape-check through an Indian proxy (1 Nov, box):** `pmgsy` agreements (Sikkim, 1,263 records), `statepwd` (Gujarat
+  electrical, 1,334), `rdso` (133): all PASS, and a rerun keeps the same ids.
+- **Cross-checks:** Gujarat civil rows 1–8,113 contiguous and equal to the PDF's own "Total Registered Civil Contractor: 8113";
+  RDSO 25 / 107 / 1 rows equal the lists' stated counts; CPWD 9,736 equals the portal's total; Sikkim's 1,215 awarded works equal
+  the Agreement Details summary.
+- **Not checked:** the PMGSY works totals against the summary for other states; whether GitHub runners reach rnb.gujarat.gov.in
+  and rdso directly (CI steps added); the bucket size today.
 
-## Status (2026-11-01)
+## 9. Known gaps and quality issues
 
-- 2026-10-29/30: the first pass finished: all 311 queue items done but one MoRTH item (`public-notices-part5`, whose list request
-  failed for three hours and used up its 40 tries; setup now resets such items). 17,978 records, 63,686 files (48 GiB) in the bucket.
-- NHAI tender numbers are mostly not on CPPP: 846 of 3,824 archive tenders match `gepnic-etenders` (22%).
-- 2026-11-01: MES back in the pool through the Indian proxies; PMGSY contractor master added; OCR of the 16,081 stored scans
-  ready but off for now (load); daily / weekly / monthly refresh; documents unchanged on the site are not fetched again.
+| # | Issue | Size | Impact / what to do |
+|---|---|---:|---|
+| 1 | **MES refuses the proxies (missed by us, for now)** | 34 items | Retried by the hub up to 40 times, 3 min apart. If it persists, ask Sarthak whether the proxy IPs were banned. |
+| 2 | **Empty NHAI archive files** stored in the first pass (missed by us) | 2,794 files | Guard added; re-fetch those tenders' documents with a refresh item. |
+| 3 | Documents that did not load (NHAI archive 552, MoRTH 20) or were over 80 MB (17) | 589 | Listed on the dashboard; most are 404s at the source. |
+| 4 | No contractor ↔ work link in PMGSY public data (missing at the source) | all works | Only the officials' OMMAS has it. |
+| 5 | PAN masked by PMGSY (missing at the source) | 56,988 | First five and last character only; enough to cross-check, not to identify. |
+| 6 | Gujarat rows with blank cells (missing at the source) | 587 no firm type, 45 no registration date, 28 no validity | Kept as blanks. |
+| 7 | OCR not run | 16,081 scans, 111,705 pages | Off by decision; `OCR = True` + setup turns it on. |
 
-## Login-only sections (links only, not scraped)
+## 10. Risks and open decisions
+- **Risks:** the proxied projects compete for 4 proxies. A long PMGSY works item (Uttar Pradesh, 21k works in one CSV) holds one
+  for under a minute, which is fine. The Gujarat and RDSO parsers find columns by position; a re-laid-out PDF fails loudly
+  (`hub.failure("parse", …)`) rather than storing wrong columns.
+- **To decide (trideep):**
+  1. **C04 vendor names via an IREPS guest login (mobile OTP).** Options: (a) skip; (b) a manual monthly pull: someone signs in with
+     their phone and a script exports the directory in that session. Recommend (b) only if the vendor names are needed and the
+     IREPS terms allow it.
+  2. **C02 next states.** Recommend Maharashtra PWD, Rajasthan PWD, Karnataka PWD next (large states); one discovery each.
+  3. **OCR** of the 16,081 scans: when there is room for the load.
 
-| Site | What is behind it | Link |
-|---|---|---|
-| CPWD CEMS | contractor enlistment applications and enlisted list | https://cems.cpwd.gov.in/ContractorLogin.aspx, https://cems.cpwd.gov.in/OfficerLogin.aspx |
-| MES CCEP | contractor & consultant enlistment portal | https://egov.mes.gov.in/CCEP/login |
-| MES PAP | product approval portal | https://egov.mes.gov.in/PAP/login |
-| MES e-governance | budget, e-cashbook, e-measurement book, project monitoring, estimates, assets | https://mes.bisag-n.gov.in/ (BMP, ECB, EMB, WBPMP, WEA, DWAP/login) |
-| MES department | site admin / department login | https://mes.gov.in/user/login, https://hrmciv.mes.gov.in/Common/Login.aspx |
-| IREPS UVAM (RDSO vendors) | approved vendor directory and item master (guest login with mobile OTP) | https://ireps.gov.in/epsn/cvap/admintab/vndrDirectoryAnon.do?activity=displayFirst&approvAgencyCode=-2, https://ireps.gov.in/epsn/cvap/admintab/viewItemMasterAnon.do |
-| IREPS | vendor / officer login | https://ireps.gov.in/epsn/jsp/admin/home/logon.jsp |
-| NHAI | complaint registration | https://complaint.nhai.org/complaintsregistration/loginpage.aspx |
+## 11. Next steps
+**To do now**
+1. Merge the PR for branch `agreements-gujarat-rdso`, then Actions → setup (`gh workflow run setup.yml --ref main`).
+2. Watch `-pmgsy-agreements`, `-state-pwd`, `-rdso-items` on scrape.s1d.me → Runs; first results within an hour.
+3. Re-test MES tomorrow: `myproxy curl https://mes.gov.in/` (the TLS handshake should complete).
 
-## Next scopes
+**To decide**
+4. IREPS guest login for C04 (above). 5. Next C02 states. 6. OCR.
 
-- PMGSY *Agreement Details* (contractor → road works awarded, agreement value) and *KPI Based Contractors' Performance*: same site
-  and the same SSRS export as the contractor master.
-- pmgsytenders.gov.in is a GePNIC portal that no family scrapes yet: a fit for the `gepnic` family (its owner adds the portal).
-- MES tenders: not queued, `gepnic-defproc` already has them (7 of 7 sampled CPPP ids, 552,817 MES records). The `mes` adapter reads
-  `tenders` pages too (`{"path": "tenders", "page": N}`) if they are ever needed.
-- IREPS open report: item/vendor counts per directorate (`itemVendorCountReport.do`).
-- RDSO "list of items with few sources" (`view_section.jsp?lang=1&id=0,5,6634`).
-- NHAI Power BI report of debarred contractors (public embed; no table behind the API).
-- State PWD / WRD / RWD / PHED registers: one discovery per state.
+**Later**
+7. PMGSY KPI contractors' performance (`/dbweb`) and quality-monitor grading abstracts.
+8. pmgsytenders.gov.in (GePNIC) for the `gepnic` family: who won PMGSY tenders, the missing contractor ↔ work link.
+9. Re-fetch the 2,794 empty NHAI archive files.
 
-## Open questions
-
-- cpwd.gov.in resets connections from every Indian exit tried (Delhi VPS, Mumbai proxies, real Chrome); its content moved to
-  erp.cpwd.gov.in. The enlistment rule books (cpwd.gov.in/writereaddata/...) are linked from CEMS but not reachable.
-- Answered: the OMMAS public reports are on pmgsy.dord.gov.in; India-only sites run in the pool through `proxy="IN"` (no
-  self-hosted runner needed).
+**Housekeeping**
+10. Sarthak: health checks for India-only sites through a proxy; raise the family's proxy cap from 4 to 6.
+11. **Rotate the Delhi VPS root password**: it was pasted in chat twice. It is not stored anywhere and is no longer needed.
