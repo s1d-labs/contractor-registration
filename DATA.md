@@ -229,6 +229,9 @@ about 6 hours with 8 workers). From the box, through a proxy: Uttar Pradesh alon
 
 ### Data quality notes
 
+- **Empty files**: 2,794 NHAI archive document links answered HTTP 200 with an empty body; they were stored as empty files under
+  `docs/` (ext `pdf`, `bytes` near 0). Treat them as missing. Downloads now refuse empty answers and web pages served in place
+  of a document (e.g. a sign-in page).
 - **Missing on the site**: ~6% of NHAI tender documents answer 404 on nhai.gov.in itself (old files with generic names such as
   `2_RFP.pdf` that were overwritten or removed). They are listed in the record (`documents[].url`) without `stored`.
 - **MoRTH title text**: in 26 titles the site's backend dropped the letters "exec" ("being uted by", "utive Engineer"); the PDF

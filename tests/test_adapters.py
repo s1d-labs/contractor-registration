@@ -294,3 +294,10 @@ def test_a_login_page_is_not_stored_as_a_document(tmp_path, monkeypatch):
     monkeypatch.setattr(ctx, "request", lambda method, url, **kw: FakeResponse(page, {"Content-Type": "text/html;charset=UTF-8"}))
     assert ctx.download("https://erp.cpwd.gov.in/documents/1/2/Order.pdf/uuid?t=1", "orders") is None
     assert not (tmp_path / "data" / "p" / "docs").exists()
+
+
+def test_an_empty_answer_is_not_stored(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = common.Ctx(common.LocalHub("p"), project="p")
+    monkeypatch.setattr(ctx, "request", lambda method, url, **kw: FakeResponse(b"", {"Content-Type": "application/pdf"}))
+    assert ctx.download("https://nhai.gov.in/nhai/sites/default/files/1_NIT.pdf", "tenders") is None
