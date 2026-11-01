@@ -110,6 +110,20 @@ class LocalHub:
             out.append({"path": path, "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest()})
         return out
 
+    def read_urls(self, target, keys):
+        """Local copies under ./data/; with the bucket's read key in the environment (eval "$(mybucket env)"), the stored files."""
+        out, s3 = {}, None
+        for k in keys:
+            local = Path("data") / k
+            if local.is_file() or not os.environ.get("B2_BUCKET"):
+                out[k] = "file:" + str(local)
+                continue
+            if s3 is None:
+                import boto3
+                s3 = boto3.client("s3", endpoint_url=os.environ["B2_ENDPOINT"], region_name=os.environ.get("B2_REGION"))
+            out[k] = s3.generate_presigned_url("get_object", Params={"Bucket": os.environ["B2_BUCKET"], "Key": k}, ExpiresIn=900)
+        return out
+
 
 class TimeUp(Exception):
     """The run's time budget (SCRAPE_MAX_HOURS) is used up: the item is handed back unfinished and retried later."""
@@ -122,9 +136,12 @@ class Ctx:
         self.hub = hub
         self.session = session or requests.Session()
         self.session.headers["User-Agent"] = UA
+        self.bucket = requests.Session()
+        self.bucket.trust_env = False          # the bucket is read directly, not through a project's site proxy
         self.project = project
         self.last = 0.0
         self.deadline = deadline
+        self.ocr = os.environ.get("OCR") == "1"
 
     def pause_if_held(self):
         while self.hub.settings.get("paused"):
@@ -168,10 +185,56 @@ class Ctx:
     def record(self, rid, data):
         self.hub.record(no_nul(rid), no_nul(data))
 
+    def read_links(self, target, keys):
+        """{key: short-lived download link} for files stored under project `target`; {} if the hub gives none."""
+        try:
+            return self.hub.read_urls(target, keys)
+        except Exception as e:
+            self.hub.metric("bucket_link_errors")
+            print(f"read links for {target}: {type(e).__name__}: {e}"[:300], file=sys.stderr)
+            return {}
+
+    def fetch_stored(self, link):
+        """Bytes of a stored file from a read link, or None if it is not there."""
+        if not link:
+            return None
+        if link.startswith("file:"):
+            p = Path(link[5:])
+            return p.read_bytes() if p.is_file() else None
+        try:
+            r = self.bucket.get(link, timeout=120)
+        except requests.RequestException:
+            return None
+        self.hub.metric("bucket_reads")
+        return r.content if r.status_code == 200 else None
+
+    def seen_before(self, url, headers=None):
+        """What an earlier download of this URL stored (from its marker seen/<sha1>.json), if the site's copy has not changed since:
+        a HEAD request compares Content-Length and Last-Modified. Saves fetching and storing the same document again."""
+        key = f"{self.project}/seen/{sha1(url)}.json"
+        raw = self.fetch_stored(self.read_links(self.project, [key]).get(key))
+        try:
+            mark = json.loads(raw) if raw else None
+        except ValueError:
+            mark = None
+        if not mark or not mark.get("stored"):
+            return None
+        h = self.request("HEAD", url, headers=headers or {}, timeout=45, allow_redirects=True)
+        if h is not None:
+            for name in ("Content-Length", "Last-Modified"):
+                if mark.get(name) and h.headers.get(name) and mark[name] != h.headers[name]:
+                    return None
+        self.hub.metric("files_reused")
+        return mark["stored"]
+
     def download(self, url, section, headers=None):
         """Fetch a document and store it. PDFs with no text layer go to ocr-needed/, other PDFs to pdf/, the rest to docs/.
-        A PDF's whole text is stored beside it as <path>.txt. Returns {path, bytes, sha256, ext, pages, needs_ocr, text_path,
-        text_chars, text (first RECORD_TEXT characters)} or None."""
+        A PDF's whole text is stored beside it as <path>.txt (for scans: the OCR text when the project has OCR=1).
+        Returns {path, bytes, sha256, ext, pages, needs_ocr, ocr, text_path, text_chars, text (first RECORD_TEXT characters)} or None.
+        A document stored before and unchanged on the site is not fetched again."""
+        before = self.seen_before(url, headers)
+        if before:
+            return before
         r = self.request("GET", url, headers=headers or {}, timeout=120)
         if r is None:
             self.hub.failure("download", url[:200], "document did not load")
@@ -181,23 +244,33 @@ class Ctx:
             self.hub.failure("download", url[:200], f"file larger than {MAX_FILE_BYTES // 2**20} MB: not stored")
             return None
         ext = url_ext(url) or ("pdf" if data[:5] == b"%PDF-" else "bin")
-        text, pages, ocr = "", 0, False
+        text, pages, scan, ocr_read = "", 0, False, 0
         if ext == "pdf" and data[:5] == b"%PDF-":
             text, pages = pdf_text(data)
-            ocr = needs_ocr(text, pages)
-            folder = "ocr-needed" if ocr else "pdf"
+            scan = needs_ocr(text, pages)
+            folder = "ocr-needed" if scan else "pdf"
+            if scan and self.ocr:
+                from adapters.ocr import ocr_pdf
+                ocr_text, _, ocr_read = ocr_pdf(data)
+                if ocr_text.strip():
+                    text = ocr_text
+                    self.hub.metric("ocr_pages", ocr_read)
         else:
             folder = "docs"
         name = safe_name(Path(urlparse(url).path).name or "file")
         path = f"{folder}/{section}/{sha1(url)[:8]}-{name}"
         ctype = r.headers.get("Content-Type", "application/octet-stream").split(";")[0]
+        stored = {"path": path, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(), "ext": ext, "pages": pages,
+                  "needs_ocr": scan, "ocr": bool(scan and text.strip()), "text_path": path + ".txt" if text.strip() else None,
+                  "text_chars": len(text), "text": no_nul(text[:RECORD_TEXT])}
+        mark = {"url": url, "Content-Length": r.headers.get("Content-Length"), "Last-Modified": r.headers.get("Last-Modified"),
+                "stored": stored}
         files = [(path, data, ctype)]
         if text.strip():
             files.append((path + ".txt", text.encode("utf-8"), "text/plain"))
-        stored = self.hub.upload_many(files)[0]
-        return {"path": path, "bytes": stored.get("bytes", len(data)), "sha256": stored.get("sha256"), "ext": ext, "pages": pages,
-                "needs_ocr": ocr, "text_path": path + ".txt" if len(files) > 1 else None, "text_chars": len(text),
-                "text": text[:RECORD_TEXT]}
+        files.append((f"seen/{sha1(url)}.json", json.dumps(mark, ensure_ascii=False).encode("utf-8"), "application/json"))
+        self.hub.upload_many(files)
+        return stored
 
 
 class PageWalker(HTMLParser):

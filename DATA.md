@@ -1,8 +1,10 @@
 # Data: how it works, where it is, how to use it, what it shows
 
 The family `contractor-registration` collects what nhai.gov.in and morth.gov.in publish about the firms that build and
-supervise India's national highways: tenders and empanelment calls, consultant and contractor ratings, debarment orders,
-model contracts and circulars. Site discovery and login-only sections: [DISCOVERY.md](DISCOVERY.md).
+supervise India's national highways (tenders and empanelment calls, consultant and contractor ratings, debarment orders, model
+contracts and circulars), MES's approved products and consultants, and the PMGSY contractor master of rural road works (every
+state's registered contractors with registration number, contacts, masked PAN and status, blacklisted included). Scanned
+documents are OCR'd. Site discovery and login-only sections: [DISCOVERY.md](DISCOVERY.md).
 
 ## How it works
 
@@ -12,18 +14,27 @@ family.py ──(Actions → setup)──▶ scrape-hub: projects, queue items, 
                                      ▼
                      members' GitHub Actions runners (s1d-labs/runner, 60-minute runs)
                        check out this repo at main → crawl.py → adapters/<site>.py
-                       claim an item ─▶ fetch pages / API ─▶ download documents
+                       claim an item ─▶ fetch pages / API ─▶ download documents (scans: OCR with tesseract)
+                       (mes, pmgsy: through one of the hub's Mumbai proxies)        │
                                      │                              │
                          records (JSON, upserts)        files via the hub's signed upload links
                                      ▼                              ▼
                  Postgres scrape_hub.public.records       B2 bucket s1d-labs-trideep/<project>/...
+                                                                    │
+                       project -ocr: reads stored scans back ◀──────┘ and stores their text beside them
 ```
+
+- **Refresh**: the setup workflow runs every day at 07:00 IST and adds dated items: the live NHAI tenders every day
+  (`tenders-<YYYYMMDD>-p<k>`), MoRTH (new documents only), NHAI pages and MES every ISO week (`…-<YYYY>w<WW>`), PMGSY every month
+  (`…-<YYYY>m<MM>`). A document stored before is fetched again only if the site's copy changed (a HEAD request compares
+  Content-Length / Last-Modified with the `seen/<sha1 of url>.json` marker stored with it).
 
 - **Queue items** are pages of work (50 tenders, ~100 documents, one CMS page). An item is done once; a failed one is retried
   after 3 minutes (up to 40 times), and an item claimed by a run that goes silent is handed to another run after 5 minutes.
-- **Speed**: at most 8 workers per site; the archive takes at most 5 so live tenders and pages get the rest. Every request is
-  counted (`n_http`, `t_http_s`, `http_<code>`) and the hub slows the family down if a site struggles. Health checks run every
-  minute; while a site fails, its work is held.
+- **Speed**: at most 8 workers per site; the archive takes at most 5 so live tenders and pages get the rest; MES and PMGSY 2 each
+  (one proxy each, the family may hold 4); OCR 8. Every request is counted (`n_http`, `t_http_s`, `http_<code>`) and the hub
+  slows the family down if a site struggles. The health checks are registered but no project waits on them: the hub checks
+  from a server these sites do not answer (since 2026-10-30).
 - **Code changes** reach the pool through `main` only: merge a PR and the next runs use it. A change to `family.py` (new
   projects or items) also needs **Actions → setup**. Re-running setup is safe: existing items keep their state.
 
@@ -33,7 +44,8 @@ family.py ──(Actions → setup)──▶ scrape-hub: projects, queue items, 
 |---|---|---|
 | Records | Postgres `scrape_hub`, table `public.records` (`project`, `record_id`, `data` jsonb, `scraped_at`) | `psql scrape_hub` on your box; Metabase → "Team data (scrape_hub)" |
 | Queue, runs, failures | `public.queue`, `public.runs`, `public.failures` (filter `project like 'contractor-registration-%'`) | same; also https://scrape.s1d.me |
-| Files | bucket `s1d-labs-trideep`, one folder per project | `mybucket ls`, `mybucket get`, `mybucket du`; bulk: `eval "$(mybucket env)"` then `aws s3` / `rclone` / boto3 |
+| Files | bucket `s1d-labs-trideep`, one folder per project | `mybucket ls`, `mybucket get`; bulk: `eval "$(mybucket env)"` then `aws s3` / `rclone` / boto3 |
+| OCR text of scans | records of `contractor-registration-ocr` (`data->>'path'` = the scan's path, `data->'records'` = the records citing it); files `contractor-registration-ocr/<source project>/<path>.txt` | same |
 
 The bucket is written only by pool runs (signed links); the key on your box is read-only. Nothing needs to be copied there by
 hand: every document a run downloads is stored there with its text.
@@ -47,10 +59,19 @@ s1d-labs-trideep/
     pdf/<page>/<group>/<hash8>-<name>.pdf.txt    the whole extracted text
     ocr-needed/<page>/<group>/<hash8>-<name>.pdf scans (no text layer): input for an OCR pass
     docs/<page>/<group>/...                      doc, docx, xls, zip, ...
+    seen/<sha1 of url>.json                      marker: what a download stored (lets a refresh skip unchanged documents)
   contractor-registration-nhai-tender-archive/   same, with sections tenders-archive/<endpoint>/
   contractor-registration-nhai-tenders/          same, section tenders/
   contractor-registration-nhai-pages/            same, one section per page (ratings, debarment orders, ...)
+  contractor-registration-mes-works/             same, one section per MES page (works-product-approval, ...)
+  contractor-registration-pmgsy-contractors/
+    docs/contractor-information/<state>-<status>-<YYYYMMDD>.csv   the site's CSV export, per state and status
+  contractor-registration-ocr/
+    <source project>/ocr-needed/.../<name>.pdf.txt                OCR text of that scan (pages separated by form feeds)
 ```
+
+Scans read as they were stored (projects with `OCR=1`, from 2026-11-01) have their OCR text beside them as `<path>.txt` and
+`"ocr": true` in the record; the scans stored before are read by the `-ocr` project.
 
 `<hash8>` is the first 8 hex digits of the SHA-1 of the source URL, so a file keeps its path when it is fetched again. Each
 record points to its files: `path`, `text_path`, `sha256`, `bytes`, `pages`, `needs_ocr`, `text_chars`, and the first 20,000
@@ -64,6 +85,9 @@ characters of `text`.
 | `contractor-registration-nhai-tender-archive` | NHAI tenders 2018-2025 (~10,900) | `tender-<nhai id>` |
 | `contractor-registration-nhai-pages` | rating documents, debarment orders, standard documents, procurement manual, app catalogue, blacklist entries | `page-<nid>`, `<nid>-row-…`, `<nid>-doc-…`, `<nid>-link-…`, `common-…` |
 | `contractor-registration-morth-documents` | MoRTH orders, notices, circulars, gazettes, guidelines, reports (~6,980) | `<slug>-<doc id>` |
+| `contractor-registration-mes-works` | MES product approvals, approved consultants, contract policy, technical information (table rows) | `<page>-<row hash>` |
+| `contractor-registration-pmgsy-contractors` | PMGSY contractors of every state, with status | `<state code>-<hash of company, reg no, person, PAN>` |
+| `contractor-registration-ocr` | OCR text of every scan stored before 2026-11-01 (16,081 files) | `<source project minus family>-<hash of source, path>` |
 
 Record fields:
 
@@ -73,6 +97,12 @@ Record fields:
 - **NHAI page document** (ratings, standard documents): `text`, `heading` (e.g. "AE/IE Consultant Rating"), `size`, `url`, `file`.
 - **MoRTH document**: `slug`, `group` (e.g. "Related to Debarment and Blacklisting"), `title`, `published_date`,
   `wings_division`, `circular_number`, `url`, `contractor_related`, `file`.
+- **MES row**: `path`, `page`, `columns` (e.g. `Subject`, `Date`, `Attachment`), `urls`, `tender_id`, `files[]`.
+- **PMGSY contractor**: `state`, `state_code`, `company`, `contact_person`, `registration_no`, `address`, `pincode`, `phone1`,
+  `phone2`, `fax`, `email`, `pan` (as the site shows it, e.g. `AHBTSXXXXC`), `contractor_status` (Active / Inactive /
+  Blacklisted / Expired), `csv_path`.
+- **OCR**: `source_project`, `path`, `records` (up to 5 record ids citing the scan), `pages`, `pages_read` (at most 300),
+  `lang` (`eng+hin`), `text_path`, `text_chars`, `text` (first 20,000 characters).
 
 ## How to work with it
 
@@ -99,9 +129,21 @@ from public.records where project = 'contractor-registration-morth-documents'
 select data->'columns'->>'Date', data->'columns'->>'Order Number', data->'columns'->>'Subject'
 from public.records where project = 'contractor-registration-nhai-pages' and data->>'kind' = 'table_row';
 
--- search the text of every stored document for a firm
-select project, record_id, data->>'title' from public.records
+-- search the text of every stored document for a firm (OCR text included: project -ocr, joined back through data->'records')
+select project, record_id, coalesce(data->>'title', data->>'path') from public.records
 where project like 'contractor-registration-%' and data::text ilike '%S&P Infrastructure%';
+
+-- OCR text of the MoRTH debarment orders that are scans
+select m.data->>'published_date', m.data->>'title', left(o.data->>'text', 400)
+from public.records m join public.records o
+  on o.project = 'contractor-registration-ocr' and o.data->>'source_project' = m.project and o.data->>'path' = m.data->'file'->>'path'
+where m.project = 'contractor-registration-morth-documents' and m.data->>'group' ilike '%debar%';
+
+-- PMGSY: blacklisted contractors in every state, and active contractors per state
+select data->>'state', data->>'company', data->>'registration_no', data->>'pan', data->>'address' from public.records
+where project = 'contractor-registration-pmgsy-contractors' and data->>'contractor_status' = 'Blacklisted';
+select data->>'state' state, data->>'contractor_status' status, count(*) from public.records
+where project = 'contractor-registration-pmgsy-contractors' group by 1, 2 order by 1, 2;
 
 -- NHAI tenders also on CPPP (gepnic-etenders), matched on the normalised reference number
 with g as (select distinct upper(regexp_replace(data->'list'->>'reference_no', '[^A-Za-z0-9]', '', 'g')) ref
@@ -135,46 +177,50 @@ with psycopg.connect("dbname=scrape_hub host=127.0.0.1") as db:
             body = s3.get_object(Bucket=env["B2_BUCKET"], Key=f"contractor-registration-morth-documents/{f['path']}")["Body"].read()
 ```
 
-**OCR the scans** (on your box; `sudo apt install ocrmypdf tesseract-ocr-hin`): sync `ocr-needed/` down, run
-`ocrmypdf -l eng+hin in.pdf out.pdf` per file, keep the results in your own database (`ws_trideep`) or files; the bucket is
-written only through the pool.
+**OCR**: done in the pool (project `-ocr`, `adapters/ocr.py`: pypdfium2 renders each page at 200 dpi, tesseract reads English
+and Hindi, ~6 CPU-seconds a page). New scans are read as they are stored. To queue the scans that are not read yet (e.g. after a
+pool run failed on some), run `python tools/build_queues.py` on the box, commit `queues/`, run setup. To try it on the box:
+`eval "$(mybucket env)"; python crawl.py --local ocr '<one payload from queues/ocr.json.gz>'`.
 
-## Report (snapshot 2026-10-29 17:26 UTC, about an hour after the first runs)
+## Report (2026-11-01)
 
-| Project | Queue done | Records | Documents stored | Need OCR | Size |
-|---|---|---|---|---|---|
-| `morth-documents` | 68 / 74 | 6,611 | 6,563 | 2,292 (35%) | 8.2 GB |
-| `nhai-tender-archive` | 67 / 223 | 3,829 tenders | 14,137 of 15,045 (94%) | 5,537 (39%) | 13.3 GB |
-| `nhai-pages` | 0 / 8 | not started (waiting for NHAI workers, see PR #4) | | | |
-| `nhai-tenders` | 0 / 6 | not started (same) | | | |
-| bucket | | | 29,918 objects | | 21.4 GiB |
+The first pass finished on 2026-10-30 01:20 UTC (about 9 hours): every queue item done but one MoRTH item (below).
 
-At this pace the archive finishes in about 2-3 hours (~38 GB at 3.5 MB a tender) and MoRTH as soon as the NUL fix (PR #4) is
-on `main`.
+| Project | Records | Documents in the bucket | Scans (no text layer) | Size |
+|---|---|---|---|---|
+| `nhai-tender-archive` | 10,648 tenders (2018-2025) | 41,836 cited, 13,437 of them scans | 13,749 | 40.4 GB |
+| `morth-documents` | 6,841 documents | ~7,000 | 2,673 | 9.5 GB |
+| `nhai-tenders` | 246 live tenders (snapshot 2026-10-29) | 1,122 objects | 208 | 1.1 GB |
+| `nhai-pages` | 243 (100 debarment orders, 49 standard documents, 12 rating documents, ...) | 312 objects | 124 | 0.6 GB |
+| bucket | | 63,686 objects | | 48.0 GiB of 500 |
+
+Added 2026-11-01 (running in the pool after setup): `mes-works` (34 items), `pmgsy-contractors` (296 items: 37 states x 4
+statuses, now and every month), `ocr` (485 batches: 16,081 scans, 111,705 pages; ~45 runner-hours, about 6 hours with 8
+workers). From the box, through a proxy: Uttar Pradesh alone has 4,897 active PMGSY contractors (4,782 with a masked PAN), Sikkim
+519, Assam 15 blacklisted.
 
 ### What it shows
 
-1. **NHAI's own site is the only source for most NHAI tenders.** Matching reference numbers against the 28,475 NHAI tenders the
-   team already has from CPPP (`gepnic-etenders`): only **846 of 3,824 (22%)** archive tenders are there. Toll and user-fee
-   collection contracts (1,419) are the largest group and only 21% of them are on CPPP; construction (EPC / HAM / BOT, 558) and
-   consultancy (AE / IE / DPR, 337) are 37% on CPPP; office services, vehicles and quotations (1,510) 14%.
-2. **Empanelment happens in plain tenders.** 109 of 3,829 archive tenders so far are empanelment calls or EOIs: operators for
-   toll-plaza amenities, advocates, chartered and cost accountants, advertising agencies, GNSS free-flow tolling, expansion
-   joints and bearings manufacturers. There is no separate register; these tenders and their result documents are the record of
-   who gets empanelled.
-3. **Debarment is published as orders, not as a list.** MoRTH's "Related to Debarment and Blacklisting" group has 37 orders
-   (2023: 9, 2024: 7, 2025: 9, 2026: 12) that name firms and their associates (S&P Infrastructure Developers, Deep Jyoti Company,
-   Bhimji Velji Sorathia Construction, R. G. Buildwell Engineers, MP PWD contractor debarments). NHAI's page lists 105
-   NHIDCL / MoRTH / NHAI / PWD orders (date, order number, subject naming the person or firm), each with its order as a 3-4 MB PDF.
-4. **About 40% of the documents are scans.** 35% of MoRTH's and 39% of NHAI's tender PDFs have no text layer. Until they are
-   OCR'd, their records have titles and dates but no text; `ocr-needed/` holds exactly those files.
-5. **MoRTH's tenders are already covered** (eProcure, 24,695 since 2016); what this family adds from MoRTH is the paper trail:
-   947 of 6,611 documents are contractor-related (debarment, model concession / EPC / HAM / BOT agreements, consultancy,
-   ratings), alongside ~5,600 circulars, gazette notifications and public notices.
-6. **The registers themselves are behind logins**: CPWD's enlisted contractors (CEMS), MES's contractor and consultant enlistment
-   (CCEP) and the railway approved-vendor directory (IREPS UVAM). What is public is everything around them, which is what this
-   family collects. MES's approval registers (approved products with validity, approved consultants) are public but mes.gov.in
-   does not answer GitHub runners.
+1. **NHAI's own site is the only source for most NHAI tenders.** Matching reference numbers against the NHAI tenders the team
+   has from CPPP (`gepnic-etenders`): **2,303 of 10,648 (22%)** archive tenders are there; 25-30% for 2018-2020, 10-12% for
+   2024-2025. Toll and user-fee collection contracts are the largest group.
+2. **Empanelment happens in plain tenders.** **314** archive tenders (and 9 of the 246 live ones) are empanelment calls, RFEs or
+   EOIs: toll-plaza operators and amenities, advocates, chartered and cost accountants, advertising agencies, GNSS free-flow
+   tolling, expansion joints and bearings manufacturers. There is no separate register; these tenders and their result
+   documents are the record of who gets empanelled.
+3. **Debarment is published as orders, not as a list.** MoRTH's "Related to Debarment and Blacklisting" group has **38 orders**
+   (March 2023 to October 2026) naming firms and their associates; NHAI's page lists **100** NHIDCL / MoRTH / NHAI / PWD orders
+   (date, order number, subject naming the person or firm), each with its PDF. Many are scans: the OCR project gives them text.
+   PMGSY is the only source with a **blacklisted status per contractor** (Assam 15; most states list none).
+4. **The PMGSY contractor master is the closest thing to a public register**: per state, every contractor registered for rural
+   road works with the state registration number, address, phones and a masked PAN (first five and last character: enough to
+   tell firms with the same name apart and to match a PAN seen elsewhere). CPWD's enlisted contractors (CEMS), MES's enlistment
+   (CCEP) and the railway approved-vendor directory (IREPS UVAM) are behind logins.
+5. **About 30-40% of the documents are scans**: 13,749 of the NHAI archive's files and 2,673 of MoRTH's. Until their OCR is
+   done, their records have titles and dates but no text.
+6. **MoRTH's tenders are already covered** (eProcure, 24,695 since 2016); what this family adds from MoRTH is the paper trail:
+   950 of 6,841 documents are contractor-related (debarment, model concession / EPC / HAM / BOT agreements, consultancy,
+   ratings), alongside circulars, gazette notifications and public notices.
 
 ### Data quality notes
 
@@ -183,8 +229,13 @@ on `main`.
 - **MoRTH title text**: in 26 titles the site's backend dropped the letters "exec" ("being uted by", "utive Engineer"); the PDF
   text is intact.
 - **NUL characters**: a few PDFs (e.g. MoRTH annual reports) yield `\u0000` in their text, which Postgres cannot store; the
-  hub then refused the whole batch and 6 MoRTH items kept retrying. Fixed in PR #4 (NULs are stripped before records are sent).
-- **Time budget**: runs last 60 minutes and an archive item ~10-15; items started late timed out and were retried. PR #4 stops
-  runs from starting an item in their last 15 minutes.
-- **Live tenders change**: `nhai-tenders` is a snapshot of the 242 live tenders when it runs; new tenders need new queue items
-  (for example keys with a date, seeded by setup).
+  hub then refused the whole batch. Fixed (PR #4): NULs are stripped before records are sent.
+- **One MoRTH item missing**: `public-notices-part5` (97 notices) failed for three hours on 2026-10-29 ("site did not answer" on
+  the list request) and used up its 40 tries; the request works again. Setup now resets items that used up their tries, so it
+  runs again, and the weekly MoRTH refresh would pick the notices up anyway.
+- **Time budget**: runs last 60 minutes and an archive item ~10-15; runs no longer start an item in their last 15 minutes.
+- **Live tenders**: read every day from 2026-11-01; a tender's record is rewritten with its latest details each day it is live.
+- **PMGSY**: the site masks PANs itself (`AHBTSXXXXC`); some rows carry placeholders (`xyz54XXXX5`, phone `0 0`), cleaned to
+  empty where they are only zeros and dashes. One state and status is one CSV export (Uttar Pradesh: 1.4 MB).
+- **Health checks**: since 2026-10-30 02:00 CET the hub's own server gets no answer from nhai.gov.in, morth.gov.in or any other
+  India-only site (every family's checks fail on scrape.s1d.me). The projects no longer wait on them.

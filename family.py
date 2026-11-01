@@ -6,11 +6,23 @@ One project per site (or per kind of work on a site); `env.ADAPTER` picks adapte
 These are government contractor, consultant and vendor registers and the notices around them (empanelment calls, ratings,
 debarment orders). Public pages only: sections behind a login are listed in DISCOVERY.md, not scraped.
 """
+import gzip
 import json
+from datetime import datetime, timezone
 from math import ceil
 from pathlib import Path
 
-FAMILY = json.loads((Path(__file__).parent / "scrape.json").read_text())["family"]
+HERE = Path(__file__).parent
+FAMILY = json.loads((HERE / "scrape.json").read_text())["family"]
+
+# Refresh items: the setup workflow runs every day (schedule in .github/workflows/setup.yml) and adds items keyed by the day or the
+# ISO week, so the live NHAI tenders are read daily and MoRTH / NHAI pages / MES weekly. Documents stored before and unchanged on
+# the site are not fetched again (marker files, adapters/common.py).
+TODAY = datetime.now(timezone.utc).date()
+DAY = TODAY.strftime("%Y%m%d")
+WEEK = "{0}w{1:02d}".format(*TODAY.isocalendar())
+MONTH = TODAY.strftime("%Ym%m")
+LIVE_PAGES = 8        # tenderlist pages of 50 read every day (242 live tenders on 2026-10-29); empty pages finish with 0 records
 
 MORTH_FILES = "."     # MoRTH documents whose files are downloaded ("." = all); every document gets a record either way
 DOCS_PER_ITEM = 100   # MoRTH documents per queue item, so no item runs for hours
@@ -44,11 +56,25 @@ MES_WORKS = {         # mes.gov.in table pages -> pages in the pager (0-based ?p
     "works-policies-data/contracts": 1,             # contract policy letters (incl. the enlistment policy for consultants)
     "works-directorate-technical-information": 1,
 }
+PMGSY_STATES = {1: "Andaman And Nicobar (UT)", 2: "Andhra Pradesh", 3: "Arunachal Pradesh", 4: "Assam", 5: "Bihar",
+                6: "Chandigarh (UT)", 7: "Chhattisgarh", 8: "Dadra And Nagar Haveli (UT)", 9: "Daman And Diu (UT)", 10: "Delhi (UT)",
+                11: "Goa", 12: "Gujarat", 13: "Haryana", 14: "Himachal Pradesh", 15: "Jammu And Kashmir", 16: "Jharkhand",
+                17: "Karnataka", 18: "Keralam", 19: "Lakshadweep (UT)", 20: "Madhya Pradesh", 21: "Maharashtra", 22: "Manipur",
+                23: "Meghalaya", 24: "Mizoram", 25: "Nagaland", 26: "Odisha", 27: "Puducherry (UT)", 28: "Punjab", 29: "Rajasthan",
+                30: "Sikkim", 31: "Tamil Nadu", 32: "Tripura", 33: "Uttar Pradesh", 34: "Uttarakhand", 35: "West Bengal",
+                36: "Telangana", 37: "Ladakh (UT)"}   # the site's state codes (its State list)
 # MES tenders are not queued: the gepnic family already holds them from defproc.gov.in under the same CPPP ids
 
 
-def _env(adapter, site):
-    return {"ADAPTER": adapter, "SITE": site}
+def _env(adapter, site, ocr=True):
+    """OCR=1: scans are read with tesseract as they are stored (adapters/ocr.py)."""
+    return {"ADAPTER": adapter, "SITE": site, **({"OCR": "1"} if ocr else {})}
+
+
+def _queue(name):
+    """Items built from what is already stored (tools/build_queues.py, run on a team box); [] before the first build."""
+    path = HERE / "queues" / name
+    return json.loads(gzip.decompress(path.read_bytes())) if path.exists() else []
 
 
 PROJECTS = [
@@ -56,17 +82,18 @@ PROJECTS = [
         "name": f"{FAMILY}-nhai-tenders",
         "title": "NHAI current tenders and empanelment calls",
         "task": "crawl", "target": "nhai.gov.in", "env": _env("nhai", "https://nhai.gov.in"),
-        "probe": f"{FAMILY}:nhai.gov.in",
         "unit_label": "page", "record_label": "tender",
-        # 242 live tenders, 50 a page; empty trailing pages finish with 0 records
+        # the first snapshot (2026-10-29), then every day's live list with details and documents
         "items": [{"key": f"tenders-p{k}", "payload": {"kind": "tenders", "endpoint": "tenderlist", "page": k, "detail": True,
-                                                       "files": True, "section": "tenders", "expected": 50}} for k in range(6)],
+                                                       "files": True, "section": "tenders", "expected": 50}} for k in range(6)]
+                 + [{"key": f"tenders-{DAY}-p{k}", "payload": {"kind": "tenders", "endpoint": "tenderlist", "page": k, "detail": True,
+                                                              "files": True, "section": "tenders", "expected": 50 if k < 5 else 0}}
+                    for k in range(LIVE_PAGES)],
     },
     {
         "name": f"{FAMILY}-nhai-tender-archive",
         "title": "NHAI tender archive 2018-2025",
-        "task": "crawl", "target": "nhai.gov.in", "env": _env("nhai", "https://nhai.gov.in"),
-        "probe": f"{FAMILY}:nhai.gov.in",
+        "task": "crawl", "target": "nhai.gov.in", "env": _env("nhai", "https://nhai.gov.in", ocr=False),
         "max_workers": 5,     # of the 8 per target: leaves room for the live tenders and the ratings / debarment pages
         "unit_label": "page", "record_label": "tender",
         # details and documents for every tender (~5 MB a tender, ~50 GB in all)
@@ -78,26 +105,61 @@ PROJECTS = [
         "name": f"{FAMILY}-nhai-pages",
         "title": "NHAI ratings, debarment orders and standard documents",
         "task": "crawl", "target": "nhai.gov.in", "env": _env("nhai", "https://nhai.gov.in"),
-        "probe": f"{FAMILY}:nhai.gov.in",
         "unit_label": "page", "record_label": "row / document",
-        "items": [{"key": f"page-{nid}"[:200], "payload": {"kind": "page", "nid": nid, "files": True}} for nid in NHAI_PAGES]
-                 + [{"key": "common-blacklisted-debarred-firms", "payload": {"kind": "commontype", "tid": "blacklisted-debarred-firms"}}],
+        "items": [{"key": f"page-{nid}{sfx}"[:200], "payload": {"kind": "page", "nid": nid, "files": True}}
+                  for sfx in ("", f"-{WEEK}") for nid in NHAI_PAGES]
+                 + [{"key": f"common-blacklisted-debarred-firms{sfx}", "payload": {"kind": "commontype", "tid": "blacklisted-debarred-firms"}}
+                    for sfx in ("", f"-{WEEK}")],
     },
     {
         "name": f"{FAMILY}-morth-documents",
         "title": "MoRTH orders, notices, guidelines, circulars and gazettes",
         "task": "crawl", "target": "morth.gov.in", "env": _env("morth", "https://morth.gov.in"),
-        "probe": f"{FAMILY}:morth.gov.in",
         "unit_label": "page", "record_label": "document",
         "items": [{"key": f"{slug}-part{k}" if n > DOCS_PER_ITEM else slug,
                    "payload": {"slug": slug, "part": k, "parts": ceil(n / DOCS_PER_ITEM), "files_re": MORTH_FILES,
                                "expected": ceil(n / ceil(n / DOCS_PER_ITEM))}}
-                  for slug, n in MORTH_PAGES.items() for k in range(ceil(n / DOCS_PER_ITEM))],
+                  for slug, n in MORTH_PAGES.items() for k in range(ceil(n / DOCS_PER_ITEM))]
+                 # weekly: the whole page in one item, only the documents not collected before
+                 + [{"key": f"{slug}-{WEEK}", "payload": {"slug": slug, "part": 0, "parts": 1, "files_re": MORTH_FILES, "new_only": True}}
+                    for slug in MORTH_PAGES],
     },
-    # MES (adapters/mes.py) is not queued: mes.gov.in does not answer GitHub runners (check workflow, 2026-10-29).
+    {
+        # mes.gov.in answers Indian addresses only: GitHub workers each borrow one of the hub's Mumbai proxies (proxy="IN")
+        "name": f"{FAMILY}-mes-works",
+        "title": "MES approved products, approved consultants and works policy letters",
+        "task": "crawl", "target": "mes.gov.in", "env": _env("mes", "https://mes.gov.in"),
+        "proxy": "IN", "max_workers": 2,
+        "unit_label": "page", "record_label": "row",
+        "items": [{"key": f"{path.replace('/', '-')}-p{k}", "payload": {"path": path, "page": k, "files": True}}
+                  for path, pages in MES_WORKS.items() for k in range(pages)]
+                 + [{"key": f"{path.replace('/', '-')}-{WEEK}-p0", "payload": {"path": path, "page": 0, "files": True}}
+                    for path in MES_WORKS],
+    },
+    {
+        # pmgsy.dord.gov.in (OMMAS citizen reports) answers Indian addresses only: through the hub's Mumbai proxies
+        "name": f"{FAMILY}-pmgsy-contractors",
+        "title": "PMGSY (OMMAS) contractor master per state: active, inactive, blacklisted, expired",
+        "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 2,
+        "unit_label": "state x status", "record_label": "contractor",
+        # once, then every month (the master changes slowly)
+        "items": [{"key": f"{code:02d}-{status}{sfx}", "payload": {"state": code, "state_name": name, "status": status}}
+                  for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items() for status in "ABEI"],
+    },
+    {
+        # reads the scans stored above (ocr-needed/) back from the bucket and stores their text; no site is contacted
+        "name": f"{FAMILY}-ocr",
+        "title": "OCR text of the scanned documents",
+        "task": "crawl", "target": "ocr.s1d-labs-trideep", "env": {"ADAPTER": "ocr"},
+        "max_workers": 8,
+        "unit_label": "batch", "record_label": "document",
+        "items": _queue("ocr.json.gz"),
+    },
 ]
 
-# health checks the hub runs every minute; work for a project holds while its probe fails
+# Health checks, shown on scrape.s1d.me. No project names them (probe=""): the hub checks from its own server, which these sites
+# have not answered since 2026-10-30, and a failing probe would hold the work that GitHub runners and the proxies can still do.
 PROBES = [
     {"name": f"{FAMILY}:nhai.gov.in", "url": "https://nhai.gov.in/", "expect": "National Highways Authority of India"},
     {"name": f"{FAMILY}:morth.gov.in", "url": "https://morth.gov.in/", "expect": "Ministry of Road Transport"},

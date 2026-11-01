@@ -6,18 +6,26 @@ one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks 
 
 | Adapter | Site | Projects (family.py) |
 |---|---|---|
-| `nhai` | nhai.gov.in (Angular + Drupal JSON API) | `-nhai-tenders`, `-nhai-tender-archive`, `-nhai-pages` |
-| `morth` | morth.gov.in (Angular + Laravel JSON API) | `-morth-documents` |
-| `mes` | mes.gov.in (Drupal 11 tables) | none yet: mes.gov.in does not answer GitHub runners |
+| `nhai` | nhai.gov.in (Angular + Drupal JSON API) | `-nhai-tenders` (live, daily), `-nhai-tender-archive`, `-nhai-pages` (weekly) |
+| `morth` | morth.gov.in (Angular + Laravel JSON API) | `-morth-documents` (weekly: new documents only) |
+| `mes` | mes.gov.in (Drupal 11 tables), through the hub's Indian proxies | `-mes-works` (weekly) |
+| `pmgsy` | pmgsy.dord.gov.in (OMMAS citizen reports, SSRS CSV export), through the Indian proxies | `-pmgsy-contractors` (monthly) |
+| `ocr` | the family's own bucket: scans read back and OCR'd with tesseract (English + Hindi) | `-ocr` |
 
 Documents go to the family bucket as `pdf/` (with the extracted text beside each as `.pdf.txt`), `ocr-needed/` (scans without a
-text layer) and `docs/`. Where the records and files end up and what they show: [DATA.md](DATA.md). What each site offers, what is
-behind a login, and what comes next: [DISCOVERY.md](DISCOVERY.md).
+text layer) and `docs/`; the OCR text of the scans is in `contractor-registration-ocr/`. Where the records and files end up and
+what they show: [DATA.md](DATA.md). What each site offers, what is behind a login, and what comes next: [DISCOVERY.md](DISCOVERY.md).
 
-The sites drop some foreign hosting addresses (the team box among them); GitHub's runners get through. To run locally from the box,
-send the requests through an Indian exit: `ALL_PROXY=socks5h://127.0.0.1:1080 NO_PROXY=127.0.0.1,localhost` (and `pip install pysocks`).
+The setup workflow runs every day: it adds the day's live-tender items and the week's / month's refresh items. A document stored
+before and unchanged on the site (same Content-Length / Last-Modified) is not fetched again (`seen/<sha1>.json` markers).
+
+The sites answer Indian addresses; GitHub's runners reach nhai.gov.in and morth.gov.in, and MES / PMGSY borrow one of the hub's
+Mumbai proxies (`proxy="IN"`). From the team box: `myproxy run python crawl.py --local …` (and `NO_PROXY=127.0.0.1,localhost` for
+scrape-check).
 
 Run one queue item without the hub: `python crawl.py --local nhai '{"kind": "page", "nid": "publication-rating-dpr-consultants"}'`.
+OCR a few stored scans from the box: `eval "$(mybucket env)"; python crawl.py --local ocr '<payload from queues/ocr.json.gz>'`.
+Rebuild the OCR queue and the MoRTH baseline from what is stored: `python tools/build_queues.py`, commit `queues/`, run setup.
 Add a site: write `adapters/<site>.py` with `run(ctx, payload)` and pure `parse_*` functions, saved responses in `tests/pages/`, a
 project in `family.py`, and a light `scrape-check --project contractor-registration-ci-<site>` step in `.github/workflows/check.yml`.
 

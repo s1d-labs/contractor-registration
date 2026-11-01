@@ -3,16 +3,20 @@
 Every document page (orders-and-notices, guidelines, gazettes-notifications, ...) answers with the same shape:
 page.files = groups [{name, files_data: [{title, file, published_date, ...}]}], so one handler serves them all.
 
-Queue item payload: {"slug": "orders-and-notices", "part": 0, "parts": 22, "files_re": "."}
+Queue item payload: {"slug": "orders-and-notices", "part": 0, "parts": 22, "files_re": ".", "new_only": false}
 An item handles the documents whose id falls in its part (doc_id % parts), so a page of 2,500 documents is spread over many
 items. Every document gets a record; its file is downloaded when `files_re` matches "<group> <title>" ("." = every file).
+`new_only` (the weekly refresh items) skips the documents collected before (queues/morth_known.txt.gz).
 `contractor_related` marks debarment, empanelment, rating and contract documents for analysis.
 """
+import gzip
 import re
+from pathlib import Path
 from urllib.parse import quote
 
 from adapters.common import clean, sha1
 
+KNOWN = Path(__file__).parent.parent / "queues" / "morth_known.txt.gz"
 SITE = "https://morth.gov.in"
 API = SITE + "/backend/api"
 HEADERS = {"Referer": SITE + "/", "Accept": "application/json"}
@@ -48,6 +52,15 @@ def parse_documents(js, slug):
     return out
 
 
+def known_ids(path=KNOWN):
+    """Record ids collected before (queues/morth_known.txt.gz, made by tools/build_queues.py): a refresh item skips them."""
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            return {line.strip() for line in f if line.strip()}
+    except OSError:
+        return set()
+
+
 def run(ctx, payload):
     slug = payload["slug"]
     js = ctx.get_json("GET", f"{API}/{slug}", params={"page": 1, "per_page": 500, "wings": "", "order_by": "desc", "search": ""},
@@ -56,6 +69,9 @@ def run(ctx, payload):
         return None
     part, parts = payload.get("part", 0), max(1, payload.get("parts", 1))
     docs = [d for d in parse_documents(js, slug) if int(d["doc_id"], 16) % parts == part]
+    if payload.get("new_only"):
+        known = known_ids()
+        docs = [d for d in docs if f"{slug}-{d['doc_id']}" not in known]
     fetch = re.compile(payload.get("files_re") or "$^", re.I)
     for d in docs:
         data = {**d, "contractor_related": bool(RELEVANT.search(f"{d['group']} {d['title']}"))}
