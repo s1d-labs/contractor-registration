@@ -9,8 +9,10 @@ one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks 
 | `nhai` | nhai.gov.in (Angular + Drupal JSON API) | `-nhai-tenders` (live, daily), `-nhai-tender-archive`, `-nhai-pages` (weekly) |
 | `morth` | morth.gov.in (Angular + Laravel JSON API) | `-morth-documents` (weekly: new documents only) |
 | `mes` | mes.gov.in (Drupal 11 tables), through the hub's Indian proxies | `-mes-works` (weekly) |
-| `pmgsy` | pmgsy.dord.gov.in (OMMAS citizen reports, SSRS CSV export), through the Indian proxies | `-pmgsy-contractors` (monthly) |
+| `pmgsy` | pmgsy.dord.gov.in (OMMAS citizen reports, SSRS CSV export and drill-through), through the Indian proxies | `-pmgsy-contractors`, `-pmgsy-agreements` (monthly) |
 | `cpwd` | erp.cpwd.gov.in (CPWD's Liferay portal), through the Indian proxies | `-cpwd-contractors` (monthly) |
+| `statepwd` | state PWD / R&B registers published as PDF lists (Gujarat R&B), through the Indian proxies | `-state-pwd` (monthly) |
+| `rdso` | rdso.indianrailways.gov.in: lists of items with few approved sources (PDF), through the Indian proxies | `-rdso-items` (monthly) |
 | `ocr` | the family's own bucket: scans read back and OCR'd with tesseract (English + Hindi) | `-ocr` (off for now: `OCR = False` in family.py) |
 
 Documents go to the family bucket as `pdf/` (with the extracted text beside each as `.pdf.txt`), `ocr-needed/` (scans without a

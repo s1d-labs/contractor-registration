@@ -66,6 +66,12 @@ s1d-labs-trideep/
   contractor-registration-mes-works/             same, one section per MES page (works-product-approval, ...)
   contractor-registration-pmgsy-contractors/
     docs/contractor-information/<state>-<status>-<YYYYMMDD>.csv   the site's CSV export, per state and status
+  contractor-registration-pmgsy-agreements/
+    docs/agreements/<state>-awarded|terminated-<YYYYMMDD>.csv     works awarded / awarded and terminated, per state
+  contractor-registration-state-pwd/
+    pdf/<list>/<list>-<as on YYYYMMDD>.pdf                        the state's register as published (gujarat-rnb-civil, ...)
+  contractor-registration-rdso-items/
+    pdf/rdso-items/<name>.pdf                                     RDSO lists of items with few sources
   contractor-registration-ocr/
     <source project>/ocr-needed/.../<name>.pdf.txt                OCR text of that scan (pages separated by form feeds)
 ```
@@ -88,6 +94,9 @@ characters of `text`.
 | `contractor-registration-mes-works` | MES product approvals, approved consultants, contract policy, technical information (table rows) | `<page>-<row hash>` |
 | `contractor-registration-cpwd-contractors` | CPWD enlisted contractors (9,736), CPWD debarred (9), suspended for EMD declaration violations (20) | `contractors-<site id>`, `debarred-<row hash>`, `suspended-<row hash>` |
 | `contractor-registration-pmgsy-contractors` | PMGSY contractors of every state, with status | `<state code>-<hash of company, reg no, person, PAN>` |
+| `contractor-registration-pmgsy-agreements` | PMGSY works awarded (package, road, sanctioned and awarded cost) and works awarded then terminated, every state | `<state code>-awarded-<hash>`, `<state code>-terminated-<hash>` |
+| `contractor-registration-state-pwd` | Gujarat R&B registered civil (8,113 rows, 14-09-2026) and electrical (1,334, 31-07-2026) contractors | `<list>-<hash of company, address, division, class, dates>` |
+| `contractor-registration-rdso-items` | RDSO items with fewer than 3 (25) / 5 (107) sources and with no Indian source (1), as on 03.06.2024 | `<list>-<item id>-<sub-item id or 0>` |
 | `contractor-registration-ocr` | OCR text of every scan stored before 2026-11-01 (16,081 files) | `<source project minus family>-<hash of source, path>` |
 
 Record fields:
@@ -148,6 +157,15 @@ select data->>'state', data->>'company', data->>'registration_no', data->>'pan',
 where project = 'contractor-registration-pmgsy-contractors' and data->>'contractor_status' = 'Blacklisted';
 select data->>'state' state, data->>'contractor_status' status, count(*) from public.records
 where project = 'contractor-registration-pmgsy-contractors' group by 1, 2 order by 1, 2;
+
+-- PMGSY: awarded cost against sanctioned cost per state (Rs lakh), and the works awarded then terminated
+select data->>'state', count(*), sum((data->>'sanction_cost_lakh')::numeric), sum((data->>'awarded_cost_lakh')::numeric)
+from public.records where project = 'contractor-registration-pmgsy-agreements' and data->>'kind' = 'pmgsy_work_awarded' group by 1 order by 2 desc;
+
+-- Gujarat R&B contractors per class, and registrations that have lapsed
+select data->>'list', data->>'class', count(*) from public.records where project = 'contractor-registration-state-pwd' group by 1, 2 order by 1, 2;
+select data->>'company', data->>'class', data->>'valid_upto' from public.records where project = 'contractor-registration-state-pwd'
+  and to_date(nullif(data->>'valid_upto', ''), 'DD-MM-YYYY') < current_date;
 
 -- NHAI tenders also on CPPP (gepnic-etenders), matched on the normalised reference number
 with g as (select distinct upper(regexp_replace(data->'list'->>'reference_no', '[^A-Za-z0-9]', '', 'g')) ref

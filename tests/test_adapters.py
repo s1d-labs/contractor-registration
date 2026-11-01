@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from adapters import common, cpwd, mes, morth, nhai, ocr, pmgsy
+from adapters import common, cpwd, mes, morth, nhai, ocr, pmgsy, rdso, statepwd
 
 PAGES = Path(__file__).parent / "pages"
 load = lambda name: json.loads((PAGES / name).read_text(encoding="utf-8"))
@@ -259,6 +259,69 @@ def test_pmgsy_contractors_from_the_csv_export():
     [r] = pmgsy.parse_contractors("Sr.No.,a,b,c,d,e,f,g,1,Assam,Abdul Mannan,Abdul Mannan,APWD/R/01430,Karaiani Tezpur State - Assam Pincode - -,"
                                   "Phone1 - Phone2 - Fax - Email - ,ACTPMXXXXA\n")
     assert r["address"] == "Karaiani Tezpur" and r["pincode"] == "" and r["pan"] == "ACTPMXXXXA"
+
+
+def test_pmgsy_agreements_drill_through_the_states_total_row():
+    viewer = (PAGES / "pmgsy_agr_viewer.html").read_text(encoding="utf-8")
+    url, form = pmgsy.drill_form(viewer, pmgsy.DRILLS["awarded"][0])
+    assert url.startswith("https://pmgsy.dord.gov.in/MvcReportViewer.aspx?_r=%2fPMGSYCitizen%2fTend_Agr_DetailsReport&Level=2&State=30")
+    assert form["ReportViewer$ctl09$ReportControl$ctl03"] == "249iT0:0" and form["__EVENTTARGET"] == "ReportViewer$ctl03"
+    assert form["ReportViewer$ctl09$VisibilityState$ctl00"] == "ReportPage"      # every hidden field goes back, or the viewer fails
+    assert pmgsy.drill_form(viewer, "999iT0:0") == (None, {})                      # no such cell: a state without works
+
+
+def test_pmgsy_works_awarded_and_terminated_from_the_csv_exports():
+    works = pmgsy.parse_works((PAGES / "pmgsy_agr_awarded.csv").read_text(encoding="utf-8"))
+    assert len(works) == 6 and works[0]["package"] == "BM0201" and works[0]["work_name"] == "MANGTHANG"
+    assert works[0]["sanction_cost_lakh"] == "1.01" and works[0]["awarded_cost_lakh"] == "1.01" and works[0]["road_length_km"] == "0.010"
+    assert works[-1]["sanction_date"] == "22-01-2026" and works[-1]["awarded_cost_lakh"] == "505.85" and works[-1]["block"] == "Yuksom"
+    assert "Textbox14" not in works[0] and "CURRDATE" not in works[0]               # the report's totals and today's date are dropped
+    gone = pmgsy.parse_works((PAGES / "pmgsy_agr_terminated.csv").read_text(encoding="utf-8"))
+    assert len(gone) == 4 and gone[0]["road_length_km"] == "3.800" and gone[0]["sanction_cost_lakh"] == "226.23"
+    assert "awarded_cost_lakh" not in gone[0]
+    twins = [{**works[0], "work_type": "LSB", "work_name": "Ramitey Khola", "sanction_cost_lakh": c} for c in ("201.19", "190.47")]
+    assert pmgsy.work_id(30, "awarded", twins[0]) != pmgsy.work_id(30, "awarded", twins[1])   # two bridges, one name, one package
+
+
+# --- State PWD / R&B ----------------------------------------------------------------------------------------------------
+
+def test_gujarat_civil_contractor_list_columns_from_the_pdf():
+    meta, rows = statepwd.parse_list(statepwd.pdf_pages((PAGES / "gujarat_rnb_civil.pdf").read_bytes()))
+    assert meta["as_on"] == "14-09-2026" and meta["total"] == 8113
+    assert len(rows) == 39 and [r["sr"] for r in rows] == [str(k) for k in range(1, 40)]
+    r = rows[0]
+    assert r["division"] == "Arvalli (R&B) Division, Modasa" and r["company"] == "SITARAM INFRA PROJECT"
+    assert r["address"] == "5327, Malpur Chokdi, Nr. Ankur Petrleum, Bayad Building, Dhansura,Arvalli-383310"
+    assert (r["class"], r["nature_of_firm"], r["registration_date"], r["valid_upto"]) == ("A", "Partnership Firm", "20-01-2026", "31-12-2028")
+    r = rows[16]                                                                  # wrapped company name and a four-line address
+    assert r["company"] == "RAJPUT INFRASTRUCTURE COMPANY" and r["address"].endswith("OPP. GURUKUL SCHOOL, GANDHIDHAM-KACHCHH")
+    assert rows[25]["nature_of_firm"] == "Private Limited Company" and rows[25]["class"] == "AA"
+
+
+def test_gujarat_electrical_list_and_row_ids():
+    meta, rows = statepwd.parse_list(statepwd.pdf_pages((PAGES / "gujarat_rnb_electrical.pdf").read_bytes()))
+    assert meta["as_on"] == "31-07-2026" and len(rows) == 13
+    assert rows[0]["company"] == "CIMCON SOFTWARE INDIA PRIVATE LIMITED" and rows[0]["address"].startswith("1106,11th Floor,Time Square")
+    assert rows[0]["address"].endswith("Thaltej ,Ahmedabad -380059") and rows[0]["nature_of_firm"] == "Private Limited Company"
+    assert len({statepwd.row_id("gujarat-rnb-electrical", r) for r in rows}) == 13
+
+
+# --- RDSO ---------------------------------------------------------------------------------------------------------------
+
+def test_rdso_section_links_the_lists_about_sources():
+    links = rdso.source_lists((PAGES / "rdso_section.html").read_text(encoding="utf-8"))
+    assert [u.rsplit("/", 1)[1] for _, u in links] == ["D_13403_1717398395798.pdf", "D_13403_1717398403672(1).pdf", "D_13403_1717398409779.pdf"]
+
+
+def test_rdso_items_with_fewer_than_three_sources():
+    meta, items = rdso.parse_items(statepwd.pdf_pages((PAGES / "rdso_fewer_than_three.pdf").read_bytes()))
+    assert meta["as_on"] == "03.06.2024" and rdso.list_name(meta["title"]) == "fewer-than-three-sources"
+    assert len(items) == 25 and [i["sr"] for i in items] == [str(k) for k in range(1, 26)]
+    assert items[0]["item_id"] == "3100429" and items[0]["item"].startswith("Control and Relay Panel including") and items[0]["subitem_id"] == ""
+    assert items[0]["vendor_count"] == 2 and items[0]["directorate"] == "TI"
+    sub = next(i for i in items if i["subitem_id"] == "3100508002")             # a justified description over two columns
+    assert sub["subitem"] == "Spring Auto tensioning device for 2400 kgf Tension in OHE" and sub["vendor_count"] == 0
+    assert len({(i["item_id"], i["subitem_id"]) for i in items}) == 25
 
 
 # --- CPWD ---------------------------------------------------------------------------------------------------------------
