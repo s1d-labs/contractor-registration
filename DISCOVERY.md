@@ -107,7 +107,7 @@ bucket `s1d-labs-trideep`, `contractor-registration-<…>/` · query guide: [DAT
 | nhai.gov.in, morth.gov.in | blocked | OK | OK |
 | erp.cpwd.gov.in, pmgsy.dord.gov.in | blocked | OK | blocked: pool uses `proxy="IN"` |
 | mes.gov.in | blocked | **refuses since 1 Nov ~20:54 CET** (TLS dropped after the client hello; OK earlier that day) | blocked |
-| rnb.gujarat.gov.in, rdso.indianrailways.gov.in | blocked | OK | not tested: pool uses `proxy="IN"` |
+| rnb.gujarat.gov.in, rdso.indianrailways.gov.in | blocked | OK | blocked (CI, 1 Nov): pool uses `proxy="IN"` |
 | cpwd.gov.in | blocked | blocked (TLS reset, real Chrome too) | — |
 | omms.nic.in, ommas.nic.in / pmgsy.nic.in, omms.dord.gov.in | no DNS / blocked | no DNS / blocked | — |
 
@@ -184,15 +184,14 @@ where project = 'contractor-registration-pmgsy-contractors' and data->>'contract
 More queries: [DATA.md → How to work with it](DATA.md#how-to-work-with-it).
 
 ## 8. Verification
-- **Tests:** 37 passed (`pytest tests`, offline, saved pages and PDFs). **CI:** `check` green on PR #5 (1 Nov 18:34 UTC); the
-  branch's `check` was running at writing time. **setup:** green, 1 Nov 19:52 UTC.
+- **Tests:** 37 passed (`pytest tests`, offline, saved pages and PDFs). **CI:** `check` green on PR #6 (1 Nov 20:32 UTC); its
+  reachability steps for pmgsy agreements, statepwd and rdso fail as expected (`site did not answer` from GitHub runners). **setup:** green, 1 Nov 19:52 UTC.
 - **scrape-check through an Indian proxy (1 Nov, box):** `pmgsy` agreements (Sikkim, 1,263 records), `statepwd` (Gujarat
   electrical, 1,334), `rdso` (133): all PASS, and a rerun keeps the same ids.
 - **Cross-checks:** Gujarat civil rows 1–8,113 contiguous and equal to the PDF's own "Total Registered Civil Contractor: 8113";
   RDSO 25 / 107 / 1 rows equal the lists' stated counts; CPWD 9,736 equals the portal's total; Sikkim's 1,215 awarded works equal
   the Agreement Details summary.
-- **Not checked:** the PMGSY works totals against the summary for other states; whether GitHub runners reach rnb.gujarat.gov.in
-  and rdso directly (CI steps added); the bucket size today.
+- **Not checked:** the PMGSY works totals against the summary for other states; the bucket size today.
 
 ## 9. Known gaps and quality issues
 
