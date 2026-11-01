@@ -240,6 +240,9 @@ class Ctx:
             self.hub.failure("download", url[:200], "document did not load")
             return None
         data = r.content
+        if r.headers.get("Content-Type", "").startswith("text/html") or data[:300].lstrip().lower().startswith((b"<!doctype html", b"<html")):
+            self.hub.failure("download", url[:200], "the site answered with a web page, not the document (login page?)")
+            return None
         if len(data) > MAX_FILE_BYTES:
             self.hub.failure("download", url[:200], f"file larger than {MAX_FILE_BYTES // 2**20} MB: not stored")
             return None

@@ -63,6 +63,7 @@ PMGSY_STATES = {1: "Andaman And Nicobar (UT)", 2: "Andhra Pradesh", 3: "Arunacha
                 23: "Meghalaya", 24: "Mizoram", 25: "Nagaland", 26: "Odisha", 27: "Puducherry (UT)", 28: "Punjab", 29: "Rajasthan",
                 30: "Sikkim", 31: "Tamil Nadu", 32: "Tripura", 33: "Uttar Pradesh", 34: "Uttarakhand", 35: "West Bengal",
                 36: "Telangana", 37: "Ladakh (UT)"}   # the site's state codes (its State list)
+CPWD_PAGES = 55     # pages of 200 in CPWD's contractor list (9,736 on 2026-11-01)
 # MES tenders are not queued: the gepnic family already holds them from defproc.gov.in under the same CPPP ids
 
 
@@ -151,6 +152,21 @@ PROJECTS = [
         # once, then every month (the master changes slowly)
         "items": [{"key": f"{code:02d}-{status}{sfx}", "payload": {"state": code, "state_name": name, "status": status}}
                   for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items() for status in "ABEI"],
+    },
+    {
+        # erp.cpwd.gov.in (CPWD's new portal; cpwd.gov.in does not answer) answers Indian addresses only: through the Mumbai proxies
+        "name": f"{FAMILY}-cpwd-contractors",
+        "title": "CPWD enlisted contractors (class, category, validity, debarment, suspension) and debarment / suspension lists",
+        "task": "crawl", "target": "erp.cpwd.gov.in", "env": _env("cpwd", "https://erp.cpwd.gov.in"),
+        "proxy": "IN", "max_workers": 2,
+        "unit_label": "page", "record_label": "contractor",
+        # 9,736 contractors on 2026-11-01, 200 a page; spare pages finish with 0 records. Again every month. The orders (PDFs)
+        # need a CPWD login, so the records keep their links only (files: false).
+        "items": [{"key": f"contractors-p{k}{sfx}", "payload": {"list": "contractors", "cur": k, "delta": 200, "files": False,
+                                                              "expected": 200 if k < 49 else 0}}
+                  for sfx in ("", f"-{MONTH}") for k in range(1, CPWD_PAGES + 1)]
+                 + [{"key": f"{name}{sfx}", "payload": {"list": name, "cur": 1, "delta": 200, "files": False}}
+                    for sfx in ("", f"-{MONTH}") for name in ("debarred", "suspended")],
     },
 ] + ([{
     # reads the scans stored above (ocr-needed/) back from the bucket and stores their text; no site is contacted

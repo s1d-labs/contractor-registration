@@ -86,6 +86,7 @@ characters of `text`.
 | `contractor-registration-nhai-pages` | rating documents, debarment orders, standard documents, procurement manual, app catalogue, blacklist entries | `page-<nid>`, `<nid>-row-…`, `<nid>-doc-…`, `<nid>-link-…`, `common-…` |
 | `contractor-registration-morth-documents` | MoRTH orders, notices, circulars, gazettes, guidelines, reports (~6,980) | `<slug>-<doc id>` |
 | `contractor-registration-mes-works` | MES product approvals, approved consultants, contract policy, technical information (table rows) | `<page>-<row hash>` |
+| `contractor-registration-cpwd-contractors` | CPWD enlisted contractors (9,736), CPWD debarred (9), suspended for EMD declaration violations (20) | `contractors-<site id>`, `debarred-<row hash>`, `suspended-<row hash>` |
 | `contractor-registration-pmgsy-contractors` | PMGSY contractors of every state, with status | `<state code>-<hash of company, reg no, person, PAN>` |
 | `contractor-registration-ocr` | OCR text of every scan stored before 2026-11-01 (16,081 files) | `<source project minus family>-<hash of source, path>` |
 
@@ -98,6 +99,9 @@ Record fields:
 - **MoRTH document**: `slug`, `group` (e.g. "Related to Debarment and Blacklisting"), `title`, `published_date`,
   `wings_division`, `circular_number`, `url`, `contractor_related`, `file`.
 - **MES row**: `path`, `page`, `columns` (e.g. `Subject`, `Date`, `Attachment`), `urls`, `tender_id`, `files[]`.
+- **CPWD row**: `list` (contractors / debarred / suspended), `site_id`, `columns` (`Name of Contractor`, `Address`, `State`,
+  `Category`, `Class`, `Date of Enlistment`, `Enlistment Valid Upto`, `Date of Debarred`, `Debarred Upto`, `Date of Suspension`,
+  `Suspension Upto`, `Contractor Status`; the debarred / suspended lists: their dates), `files` (order links; they need a CPWD login).
 - **PMGSY contractor**: `state`, `state_code`, `company`, `contact_person`, `registration_no`, `address`, `pincode`, `phone1`,
   `phone2`, `fax`, `email`, `pan` (as the site shows it, e.g. `AHBTSXXXXC`), `contractor_status` (Active / Inactive /
   Blacklisted / Expired), `csv_path`.
@@ -194,7 +198,8 @@ The first pass finished on 2026-10-30 01:20 UTC (about 9 hours): every queue ite
 | `nhai-pages` | 243 (100 debarment orders, 49 standard documents, 12 rating documents, ...) | 312 objects | 124 | 0.6 GB |
 | bucket | | 63,686 objects | | 48.0 GiB of 500 |
 
-Added 2026-11-01 (running in the pool after setup): `mes-works` (34 items), `pmgsy-contractors` (296 items: 37 states x 4
+Added 2026-11-01 (running in the pool after setup): `cpwd-contractors` (114 items: 55 pages and 2 lists, now and every
+month), `mes-works` (34 items), `pmgsy-contractors` (296 items: 37 states x 4
 statuses, now and every month), and, when switched on, `ocr` (485 batches ready: 16,081 scans, 111,705 pages; ~45 runner-hours,
 about 6 hours with 8 workers). From the box, through a proxy: Uttar Pradesh alone has 4,897 active PMGSY contractors (4,782 with a masked PAN), Sikkim
 519, Assam 15 blacklisted.

@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from adapters import common, mes, morth, nhai, ocr, pmgsy
+from adapters import common, cpwd, mes, morth, nhai, ocr, pmgsy
 
 PAGES = Path(__file__).parent / "pages"
 load = lambda name: json.loads((PAGES / name).read_text(encoding="utf-8"))
@@ -259,3 +259,38 @@ def test_pmgsy_contractors_from_the_csv_export():
     [r] = pmgsy.parse_contractors("Sr.No.,a,b,c,d,e,f,g,1,Assam,Abdul Mannan,Abdul Mannan,APWD/R/01430,Karaiani Tezpur State - Assam Pincode - -,"
                                   "Phone1 - Phone2 - Fax - Email - ,ACTPMXXXXA\n")
     assert r["address"] == "Karaiani Tezpur" and r["pincode"] == "" and r["pan"] == "ACTPMXXXXA"
+
+
+# --- CPWD ---------------------------------------------------------------------------------------------------------------
+
+def test_cpwd_contractor_list_rows_with_the_sites_ids():
+    page = (PAGES / "cpwd_contractors.html").read_text(encoding="utf-8")
+    rows = cpwd.parse_rows(cpwd.portlet_section(page, "gov_in_cpwd_contractor_portlet"))
+    assert len(rows) == 3 and rows[0]["site_id"] == "20071"
+    c = rows[0]["columns"]
+    assert c["Name of Contractor"].startswith("Sh. Shashank Sharma") and c["Class"] == "V" and c["Enlistment Valid Upto"] == "04/01/2026"
+    assert "S. No." not in c and "Uploaded By" not in c
+    assert cpwd.row_id("contractors", rows[0]) == "contractors-20071"
+    assert cpwd.portlet_section(page, "gov_in_cpwd_ed_contractors_portlet") == ""
+
+
+def test_cpwd_suspended_rows_keep_their_order_pdf():
+    page = (PAGES / "cpwd_suspended.html").read_text(encoding="utf-8")
+    rows = cpwd.parse_rows(cpwd.portlet_section(page, "gov_in_cpwd_suspend_contractors_portlet"))
+    assert len(rows) == 2 and rows[0]["columns"]["Date of Suspension"] == "18/11/2021"
+    assert rows[0]["files"]["Link"].startswith("https://erp.cpwd.gov.in/documents/") and ".pdf" in rows[0]["files"]["Link"]
+    assert len({cpwd.row_id("suspended", r) for r in rows}) == 2
+
+
+def test_cpwd_list_url_pages_the_portlet():
+    u = cpwd.list_url("contractors", 3, 200)
+    assert "_gov_in_cpwd_contractor_portlet_cur=3" in u and "_gov_in_cpwd_contractor_portlet_delta=200" in u
+
+
+def test_a_login_page_is_not_stored_as_a_document(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = common.Ctx(common.LocalHub("p"), project="p")
+    page = b"\n\t<!DOCTYPE html><html><head><title>Please select your identity provider.</title>"
+    monkeypatch.setattr(ctx, "request", lambda method, url, **kw: FakeResponse(page, {"Content-Type": "text/html;charset=UTF-8"}))
+    assert ctx.download("https://erp.cpwd.gov.in/documents/1/2/Order.pdf/uuid?t=1", "orders") is None
+    assert not (tmp_path / "data" / "p" / "docs").exists()

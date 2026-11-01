@@ -11,6 +11,7 @@ The team box (Germany) is dropped at TCP level by all of these hosts.
 | mes.gov.in | blocked | OK | **blocked**: the pool uses `proxy="IN"` |
 | pmgsy.dord.gov.in (OMMAS citizen reports, the old omms.nic.in) | blocked | OK | not tested: the pool uses `proxy="IN"` |
 | rdso.indianrailways.gov.in, eprocure.gov.in, cems.cpwd.gov.in, ireps.gov.in, egov.mes.gov.in, emarg.gov.in, pmgsytenders.gov.in | blocked | OK | not tested |
+| erp.cpwd.gov.in (CPWD's new portal), cems.cpwd.gov.in | blocked | OK | not tested: the pool uses `proxy="IN"` |
 | cpwd.gov.in | blocked | **blocked** (TLS reset; real Chrome too) | not tested |
 | pmgsy.nic.in, omms.dord.gov.in, geosadak-pmgsy.nic.in | blocked | **blocked** (times out / proxy 502) | not tested |
 | omms.nic.in, ommas.nic.in | no DNS | no DNS | |
@@ -32,7 +33,13 @@ No pair shares a platform, so the "family = one platform" rule does not hold for
 
 ## Scopes found
 
-1. **CPWD enlistment lists**: no public list of enlisted contractors found. CEMS (`cems.cpwd.gov.in`) exposes rule books 2020-2026 (PDFs on cpwd.gov.in, blocked), circulars (ASP.NET postbacks), the category/class matrix (Buildings & Roads: Special, I Super, I AAA, I AA, I A, I-V; Horticulture: I A, I-IV), and an eligibility calculator (`CheckEligibility.aspx`, ddlCategory/ddlClass). The contractor list is behind login. cpwd.gov.in itself is unreachable.
+1. **CPWD enlistment lists**: **found on CPWD's new portal, erp.cpwd.gov.in** (Liferay; cpwd.gov.in itself still resets
+   connections): *List of Contractors* → the enlisted contractors (9,736 on 2026-11-01: name, address, state, category, class,
+   date of enlistment, valid up to, debarment and suspension dates, status, the site's contractor id), *CPWD debarred
+   contractors* (9) and *contractors suspended for violating the EMD declaration* (20), all server-rendered tables, 200 rows a
+   page, no login (`adapters/cpwd.py`). The orders behind each row (PDFs) answer with a CPWD sign-in page, so only their links
+   are kept. *Non-CPWD debarred contractors* loads from a JSON service that refuses guests (404). Older notes: no public list
+   on CEMS. CEMS (`cems.cpwd.gov.in`) exposes rule books 2020-2026 (PDFs on cpwd.gov.in, blocked), circulars (ASP.NET postbacks), the category/class matrix (Buildings & Roads: Special, I Super, I AAA, I AA, I A, I-V; Horticulture: I A, I-IV), and an eligibility calculator (`CheckEligibility.aspx`, ddlCategory/ddlClass). The contractor list is behind login. cpwd.gov.in itself is unreachable.
 2. **State PWD / WRD / RWD / PHED**: not on any of these four sites; each state needs its own discovery.
 3. **MES**: mes.gov.in has `/tenders` (~535 pages x 10, title/start/end/PDF), `/works/product-approval` (~26 pages of approval letters + "list of approved products as on 15 Oct 2026" PDF: firm, product, approval letter, valid-up-to; it has a text layer), `/works/consultancy-miscellaneous` (consolidated list of approved consultants, PDF, Aug 2025; renewal letters; enlistment policy Feb 2025). The enlistment portal CCEP (`egov.mes.gov.in/CCEP/login`) and Product Approval Portal (`/PAP/login`) are login-only.
 4. **RDSO / railway vendors**: RDSO's UVAM link goes to IREPS `cvapApprovalofVendorAnony.jsp`. The vendor directory (`vndrDirectoryAnon.do`) and item master (`viewItemMasterAnon.do`) need a guest mobile number + OTP, so they are not scrapeable without sign-in. Open: `itemVendorCountReport.do` (item/vendor counts per directorate, no names). Not yet checked: RDSO "list of items with few sources" (`view_section.jsp?lang=1&id=0,5,6634`).
@@ -57,6 +64,7 @@ No pair shares a platform, so the "family = one platform" rule does not hold for
 | `contractor-registration-nhai-pages` | nhai.gov.in | 7 CMS pages + `commontype` blacklisted-debarred-firms | ratings documents (DPR, AE/IE, contractor), debarment orders (date, order no, subject), standard RFP/RFQ documents, procurement manual, NHAI web-application catalogue (links) | all linked documents |
 | `contractor-registration-morth-documents` | morth.gov.in | 74 items (8 document pages, ~100 documents an item); weekly: each page once, new documents only | one per document: group, title, dates, wing, circular no, URL, `contractor_related` flag | every document (~7,000) |
 | `contractor-registration-mes-works` | mes.gov.in via Indian proxy | 30 table pages (product approval, consultancy, contract policy, technical information) + weekly first pages | one per table row with its columns | every attachment (approved products list, approved consultants, enlistment policy, approval letters) |
+| `contractor-registration-cpwd-contractors` | erp.cpwd.gov.in via Indian proxy | 55 pages of 200 + the debarred and suspended lists, again every month | one per contractor / row with its columns and order links | none (orders need a login) |
 | `contractor-registration-pmgsy-contractors` | pmgsy.dord.gov.in via Indian proxy | 37 states x 4 statuses, again every month | one per contractor (company, person, registration no, address, phones, e-mail, masked PAN, status) | the CSV export per state and status |
 | `contractor-registration-ocr` (off for now: `OCR = False`) | the family bucket | 485 batches of ~250 pages (16,081 scans, 111,705 pages; `queues/ocr.json.gz`) | one per scan: source project and path, the records that cite it, OCR text | `<source project>/<path>.txt` |
 
@@ -110,7 +118,7 @@ What has been collected, how to query it and what it shows: [DATA.md](DATA.md).
 
 ## Open questions
 
-- cpwd.gov.in resets connections from every Indian exit tried (Delhi VPS, Mumbai proxies, real Chrome): down, or blocking more than
-  foreign IPs. Its rule books and enlistment notices would be worth a project once it answers.
+- cpwd.gov.in resets connections from every Indian exit tried (Delhi VPS, Mumbai proxies, real Chrome); its content moved to
+  erp.cpwd.gov.in. The enlistment rule books (cpwd.gov.in/writereaddata/...) are linked from CEMS but not reachable.
 - Answered: the OMMAS public reports are on pmgsy.dord.gov.in; India-only sites run in the pool through `proxy="IN"` (no
   self-hosted runner needed).

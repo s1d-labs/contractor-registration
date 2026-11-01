@@ -54,6 +54,12 @@ jobs:
         run: >
           scrape-check --project contractor-registration-ci-pmgsy --task crawl --env ADAPTER=pmgsy --timeout 600
           --item '{"key": "30-B", "payload": {"state": 30, "state_name": "Sikkim", "status": "B"}}'
+      - name: scrape-check cpwd (reachability, does not fail the check; the pool reaches it through Indian proxies)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: >
+          scrape-check --project contractor-registration-ci-cpwd --task crawl --env ADAPTER=cpwd --timeout 600
+          --item '{"key": "suspended", "payload": {"list": "suspended", "cur": 1, "delta": 200}}'
       - name: scrape-check ocr (one scanned MoRTH debarment order, read with tesseract)
         if: ${{ always() }}
         run: >

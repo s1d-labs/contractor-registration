@@ -10,6 +10,7 @@ one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks 
 | `morth` | morth.gov.in (Angular + Laravel JSON API) | `-morth-documents` (weekly: new documents only) |
 | `mes` | mes.gov.in (Drupal 11 tables), through the hub's Indian proxies | `-mes-works` (weekly) |
 | `pmgsy` | pmgsy.dord.gov.in (OMMAS citizen reports, SSRS CSV export), through the Indian proxies | `-pmgsy-contractors` (monthly) |
+| `cpwd` | erp.cpwd.gov.in (CPWD's Liferay portal), through the Indian proxies | `-cpwd-contractors` (monthly) |
 | `ocr` | the family's own bucket: scans read back and OCR'd with tesseract (English + Hindi) | `-ocr` (off for now: `OCR = False` in family.py) |
 
 Documents go to the family bucket as `pdf/` (with the extracted text beside each as `.pdf.txt`), `ocr-needed/` (scans without a
