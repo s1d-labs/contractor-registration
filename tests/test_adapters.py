@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from adapters import common, mes, morth, nhai
+from adapters import common, cpwd, mes, morth, nhai, ocr, pmgsy
 
 PAGES = Path(__file__).parent / "pages"
 load = lambda name: json.loads((PAGES / name).read_text(encoding="utf-8"))
@@ -162,3 +162,142 @@ def test_nul_characters_are_removed_before_records_are_sent():
     hub.record = lambda rid, data: sent.append((rid, data))
     common.Ctx(hub).record("id\x00", {"text": "annual\x00report"})
     assert sent == [("id", {"text": "annualreport"})]
+
+
+# --- download cache, refresh items, OCR ---------------------------------------------------------------------------------
+
+class FakeResponse:
+    def __init__(self, content=b"", headers=None, status_code=200):
+        self.content, self.headers, self.status_code = content, headers or {}, status_code
+
+
+def test_a_document_stored_before_is_reused_until_it_changes(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = common.Ctx(common.LocalHub("p"), project="p")
+    site = {"body": b"PK\x03\x04 a spreadsheet", "Content-Length": "22"}
+    calls = []
+
+    def fake(method, url, **kw):
+        calls.append(method)
+        return FakeResponse(site["body"] if method == "GET" else b"", {"Content-Length": site["Content-Length"]})
+    monkeypatch.setattr(ctx, "request", fake)
+    first = ctx.download("https://example.gov.in/a/list.xlsx", "sec")
+    assert first["path"].startswith("docs/sec/") and (tmp_path / "data" / "p" / first["path"]).is_file()
+    assert ctx.download("https://example.gov.in/a/list.xlsx", "sec") == first and calls == ["GET", "HEAD"]
+    site.update(body=b"PK\x03\x04 a longer spreadsheet", **{"Content-Length": "29"})
+    assert ctx.download("https://example.gov.in/a/list.xlsx", "sec")["bytes"] == 25 and calls[-2:] == ["HEAD", "GET"]
+
+
+def test_morth_refresh_items_skip_documents_collected_before(tmp_path, monkeypatch):
+    import gzip
+    js = load("morth_orders.json")
+    docs = morth.parse_documents(js, "orders-and-notices")
+    known = tmp_path / "known.txt.gz"
+    known.write_bytes(gzip.compress(f"orders-and-notices-{docs[0]['doc_id']}\n".encode()))
+    monkeypatch.setattr(morth, "KNOWN", known)
+    monkeypatch.setattr(morth.known_ids, "__defaults__", (known,))
+    sent = []
+    hub = common.LocalHub("p")
+    hub.record = lambda rid, data: sent.append(rid)
+    ctx = common.Ctx(hub)
+    monkeypatch.setattr(ctx, "get_json", lambda *a, **k: js)
+    assert morth.run(ctx, {"slug": "orders-and-notices", "new_only": True}) == len(docs) - 1
+    assert f"orders-and-notices-{docs[0]['doc_id']}" not in sent
+
+
+def test_family_items_have_unique_keys_and_todays_refresh():
+    import family
+    for p in family.PROJECTS:
+        keys = [i["key"] for i in p["items"]]
+        assert len(keys) == len(set(keys)) and all(1 <= len(k) <= 200 for k in keys), p["name"]
+        assert p["name"].startswith(family.FAMILY) and not p.get("probe")
+    by = {p["name"]: p for p in family.PROJECTS}
+    assert f"tenders-{family.DAY}-p0" in {i["key"] for i in by["contractor-registration-nhai-tenders"]["items"]}
+    assert by["contractor-registration-mes-works"]["proxy"] == "IN"
+
+
+def test_ocr_batches_stay_within_one_project_and_the_page_budget():
+    from tools.build_queues import FILES, PAGES, batches
+    files = [{"project": "a", "path": f"x{i}", "pages": 100} for i in range(5)] + [{"project": "b", "path": "y", "pages": 900}]
+    out = batches(files)
+    assert [len(b) for b in out] == [2, 2, 1, 1] and all(len({f["project"] for f in b}) == 1 for b in out)
+    assert all(len(b) <= FILES for b in out) and sum(f["pages"] for f in out[0]) <= PAGES
+    assert ocr.record_id("contractor-registration-morth-documents", "ocr-needed/a.pdf").startswith("morth-documents-")
+
+
+@pytest.mark.skipif(not ocr.tesseract_langs(), reason="tesseract is not installed")
+def test_ocr_reads_a_scanned_page():
+    from PIL import Image, ImageDraw, ImageFont
+    img = Image.new("L", (1240, 600), 255)
+    ImageDraw.Draw(img).text((60, 200), "DEBARMENT ORDER 5058", fill=0, font=ImageFont.load_default(size=72))
+    buf = io.BytesIO()
+    img.save(buf, "PDF", resolution=150)
+    text, pages, read = ocr.ocr_pdf(buf.getvalue())
+    assert pages == read == 1 and "DEBARMENT" in text.upper()
+
+
+# --- PMGSY --------------------------------------------------------------------------------------------------------------
+
+def test_pmgsy_report_chain_addresses():
+    assert pmgsy.token((PAGES / "pmgsy_layout.html").read_text())
+    src = pmgsy.iframe_src((PAGES / "pmgsy_report.html").read_text())
+    assert src.startswith("https://pmgsy.dord.gov.in/MvcReportViewer.aspx?_r=%2fPMGSYCitizen%2fContractorInformation&State=30")
+    exp = pmgsy.export_url((PAGES / "pmgsy_viewer.html").read_text())
+    assert "OpType=Export" in exp and "&ControlID=" in exp and exp.endswith("Format=CSV")
+
+
+def test_pmgsy_contractors_from_the_csv_export():
+    rows = pmgsy.parse_contractors((PAGES / "pmgsy_contractors.csv").read_text(encoding="utf-8"))
+    assert len(rows) == 6 and rows[0]["company"] == "A LSHERPA" and rows[0]["registration_no"] == "257/PWD/2000"
+    assert rows[0]["phone1"] == "03595 254244" and rows[0]["phone2"] == "" and rows[0]["pan"] == ""
+    assert rows[4]["pincode"] == "737135" and "State -" not in rows[4]["address"]
+    ids = {pmgsy.contractor_id(30, r) for r in rows}
+    assert len(ids) == 6 and pmgsy.contractor_id(30, {**rows[0], "sr": "99"}) == pmgsy.contractor_id(30, rows[0])
+    [r] = pmgsy.parse_contractors('Sr.No.,a,b,c,d,e,f,g,1,Uttar Pradesh,M/s Chaurasiya &amp; Comp.,R P,263/99 LKO,"Middha, Ballia State - '
+                                  'Uttar Pradesh Pincode - 277001",Phone1 - 0547 2227153 Phone2 -   Fax - 0 0 Email - x@y.in,AHBTSXXXXC\n')
+    assert r["company"] == "M/s Chaurasiya & Comp." and r["pincode"] == "277001" and r["email"] == "x@y.in" and r["fax"] == ""
+    [r] = pmgsy.parse_contractors("Sr.No.,a,b,c,d,e,f,g,1,Assam,Abdul Mannan,Abdul Mannan,APWD/R/01430,Karaiani Tezpur State - Assam Pincode - -,"
+                                  "Phone1 - Phone2 - Fax - Email - ,ACTPMXXXXA\n")
+    assert r["address"] == "Karaiani Tezpur" and r["pincode"] == "" and r["pan"] == "ACTPMXXXXA"
+
+
+# --- CPWD ---------------------------------------------------------------------------------------------------------------
+
+def test_cpwd_contractor_list_rows_with_the_sites_ids():
+    page = (PAGES / "cpwd_contractors.html").read_text(encoding="utf-8")
+    rows = cpwd.parse_rows(cpwd.portlet_section(page, "gov_in_cpwd_contractor_portlet"))
+    assert len(rows) == 3 and rows[0]["site_id"] == "20071"
+    c = rows[0]["columns"]
+    assert c["Name of Contractor"].startswith("Sh. Shashank Sharma") and c["Class"] == "V" and c["Enlistment Valid Upto"] == "04/01/2026"
+    assert "S. No." not in c and "Uploaded By" not in c
+    assert cpwd.row_id("contractors", rows[0]) == "contractors-20071"
+    assert cpwd.portlet_section(page, "gov_in_cpwd_ed_contractors_portlet") == ""
+
+
+def test_cpwd_suspended_rows_keep_their_order_pdf():
+    page = (PAGES / "cpwd_suspended.html").read_text(encoding="utf-8")
+    rows = cpwd.parse_rows(cpwd.portlet_section(page, "gov_in_cpwd_suspend_contractors_portlet"))
+    assert len(rows) == 2 and rows[0]["columns"]["Date of Suspension"] == "18/11/2021"
+    assert rows[0]["files"]["Link"].startswith("https://erp.cpwd.gov.in/documents/") and ".pdf" in rows[0]["files"]["Link"]
+    assert len({cpwd.row_id("suspended", r) for r in rows}) == 2
+
+
+def test_cpwd_list_url_pages_the_portlet():
+    u = cpwd.list_url("contractors", 3, 200)
+    assert "_gov_in_cpwd_contractor_portlet_cur=3" in u and "_gov_in_cpwd_contractor_portlet_delta=200" in u
+
+
+def test_a_login_page_is_not_stored_as_a_document(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = common.Ctx(common.LocalHub("p"), project="p")
+    page = b"\n\t<!DOCTYPE html><html><head><title>Please select your identity provider.</title>"
+    monkeypatch.setattr(ctx, "request", lambda method, url, **kw: FakeResponse(page, {"Content-Type": "text/html;charset=UTF-8"}))
+    assert ctx.download("https://erp.cpwd.gov.in/documents/1/2/Order.pdf/uuid?t=1", "orders") is None
+    assert not (tmp_path / "data" / "p" / "docs").exists()
+
+
+def test_an_empty_answer_is_not_stored(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ctx = common.Ctx(common.LocalHub("p"), project="p")
+    monkeypatch.setattr(ctx, "request", lambda method, url, **kw: FakeResponse(b"", {"Content-Type": "application/pdf"}))
+    assert ctx.download("https://nhai.gov.in/nhai/sites/default/files/1_NIT.pdf", "tenders") is None

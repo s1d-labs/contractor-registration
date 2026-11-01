@@ -9,11 +9,19 @@ text is on home.s1d.me → Docs → Scraper guide (Part 2), and on team boxes at
 
 - `family.py` holds the projects, targets, env, queue items and health checks; `scrape.json` the setup steps and tasks; the task
   scripts do the scraping. After changing `family.py`, the **setup** workflow (Actions → setup) applies it to the hub.
-- This family has one task (`crawl.py`) and one adapter per site in `adapters/` (`nhai`, `morth`, `mes`), picked by the project's
-  `env.ADAPTER`. Each adapter has pure `parse_*` functions tested on saved responses (`tests/test_adapters.py`, `tests/pages/`) and
-  `run(ctx, payload)` for one queue item; `adapters/common.py` holds the counted requests, document storage and PDF text.
+- This family has one task (`crawl.py`) and one adapter per site in `adapters/` (`nhai`, `morth`, `mes`, `pmgsy`, `cpwd`, plus `ocr`, which
+  reads stored scans back from the bucket), picked by the project's `env.ADAPTER`. Each adapter has pure `parse_*` functions tested
+  on saved responses (`tests/test_adapters.py`, `tests/pages/`) and `run(ctx, payload)` for one queue item; `adapters/common.py`
+  holds the counted requests, document storage (with `seen/<sha1>.json` markers so unchanged documents are not fetched twice),
+  PDF text, and inline OCR when the project's env has `OCR=1`. OCR is off for now (`OCR = False` in `family.py`): scans are
+  stored under `ocr-needed/` for later.
+- `family.py` adds dated refresh items (live NHAI tenders daily; MoRTH, NHAI pages, MES weekly; PMGSY monthly); the setup workflow
+  runs every day to seed them. `queues/` holds items built from what is stored (`tools/build_queues.py`, run on a team box):
+  the OCR batches and the MoRTH ids collected before.
 - `python crawl.py --local <adapter> '<payload json>'` runs one queue item without the hub (records on stdout, files in `./data/`).
-  From the team box the sites need an Indian exit (`ALL_PROXY=socks5h://...`, `NO_PROXY=127.0.0.1,localhost`); GitHub runners reach them.
+  From the team box the sites need an Indian exit: `myproxy run python crawl.py --local …`. GitHub runners reach nhai and morth;
+  MES, PMGSY and CPWD projects use `proxy="IN"`. The hub's health checks fail for these sites since 2026-10-30 (the hub's server is
+  outside India), so no project names a probe.
 - `scrape-check` runs setup and a task against a local stand-in hub and reports what works. The **check** workflow runs it per adapter on
   CI-only projects (`contractor-registration-ci-<site>`) with light items: on a real project it would run that queue's first, heavy items.
 - The repo is public; uploads go through `hub.upload_many` with signed links, so no storage keys are needed here.

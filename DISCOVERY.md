@@ -1,21 +1,25 @@
-# Discovery notes (2026-10-28, updated 2026-10-29)
+# Discovery notes (2026-10-28, updated 2026-11-01)
 
-Checked through an Indian exit (Delhi VPS, SOCKS tunnel). The team box's own IP (Contabo, France) is dropped at TCP level by all of these hosts.
+Checked through an Indian exit: a Delhi VPS (SOCKS tunnel) on 2026-10-28, the hub's Mumbai proxies (`myproxy`) on 2026-11-01.
+The team box (Germany) is dropped at TCP level by all of these hosts.
 
 ## Reachability
 
-| Host | From France (team box) | From Delhi VPS |
-|---|---|---|
-| morth.gov.in, nhai.gov.in, mes.gov.in, rdso.indianrailways.gov.in, eprocure.gov.in | blocked | OK |
-| cems.cpwd.gov.in, ireps.gov.in, egov.mes.gov.in | blocked | OK |
-| cpwd.gov.in | blocked | **blocked** (HTTP 302 on :80, TLS reset on :443; real Chrome too) |
-| pmgsy.nic.in | blocked | **blocked** (SOCKS/TCP times out) |
-| omms.nic.in, ommas.nic.in | no DNS | no DNS (real OMMAS hostname unknown) |
+| Host | Team box | Delhi VPS / Mumbai proxy | GitHub runners |
+|---|---|---|---|
+| morth.gov.in, nhai.gov.in | blocked | OK | OK (pool, 2026-10-29) |
+| mes.gov.in | blocked | OK | **blocked**: the pool uses `proxy="IN"` |
+| pmgsy.dord.gov.in (OMMAS citizen reports, the old omms.nic.in) | blocked | OK | not tested: the pool uses `proxy="IN"` |
+| rdso.indianrailways.gov.in, eprocure.gov.in, cems.cpwd.gov.in, ireps.gov.in, egov.mes.gov.in, emarg.gov.in, pmgsytenders.gov.in | blocked | OK | not tested |
+| erp.cpwd.gov.in (CPWD's new portal), cems.cpwd.gov.in | blocked | OK | not tested: the pool uses `proxy="IN"` |
+| cpwd.gov.in | blocked | **blocked** (TLS reset; real Chrome too) | not tested |
+| pmgsy.nic.in, omms.dord.gov.in, geosadak-pmgsy.nic.in | blocked | **blocked** (times out / proxy 502) | not tested |
+| omms.nic.in, ommas.nic.in | no DNS | no DNS | |
 
-GitHub Actions runners **reach nhai.gov.in and morth.gov.in** (check workflow, 2026-10-28: scrape-check all PASS on a GitHub runner;
-the pool has been collecting from both since 2026-10-29 16:20 UTC), and so do the hub's health checks (MoRTH 23/23, NHAI 22/23 in
-the first 30 minutes). **mes.gov.in does not answer GitHub runners** (2026-10-29: every request a connection error), so MES is not in the pool; `adapters/mes.py` is ready for an Indian runner.
-CPWD and PMGSY from runners are not tested yet.
+**The hub's health checks** run from the hub's own server, which these sites have not answered since 2026-10-30 02:00 CET (every
+India-only target on scrape.s1d.me fails, other families' too). A failing probe holds a project's work, so this family's projects
+name no probe; the checks stay registered for the dashboard. The hub owner can fix it by checking India-only targets through a proxy.
+
 
 ## Family verdict
 
@@ -29,14 +33,27 @@ No pair shares a platform, so the "family = one platform" rule does not hold for
 
 ## Scopes found
 
-1. **CPWD enlistment lists**: no public list of enlisted contractors found. CEMS (`cems.cpwd.gov.in`) exposes rule books 2020-2026 (PDFs on cpwd.gov.in, blocked), circulars (ASP.NET postbacks), the category/class matrix (Buildings & Roads: Special, I Super, I AAA, I AA, I A, I-V; Horticulture: I A, I-IV), and an eligibility calculator (`CheckEligibility.aspx`, ddlCategory/ddlClass). The contractor list is behind login. cpwd.gov.in itself is unreachable.
+1. **CPWD enlistment lists**: **found on CPWD's new portal, erp.cpwd.gov.in** (Liferay; cpwd.gov.in itself still resets
+   connections): *List of Contractors* → the enlisted contractors (9,736 on 2026-11-01: name, address, state, category, class,
+   date of enlistment, valid up to, debarment and suspension dates, status, the site's contractor id), *CPWD debarred
+   contractors* (9) and *contractors suspended for violating the EMD declaration* (20), all server-rendered tables, 200 rows a
+   page, no login (`adapters/cpwd.py`). The orders behind each row (PDFs) answer with a CPWD sign-in page, so only their links
+   are kept. *Non-CPWD debarred contractors* loads from a JSON service that refuses guests (404). Older notes: no public list
+   on CEMS. CEMS (`cems.cpwd.gov.in`) exposes rule books 2020-2026 (PDFs on cpwd.gov.in, blocked), circulars (ASP.NET postbacks), the category/class matrix (Buildings & Roads: Special, I Super, I AAA, I AA, I A, I-V; Horticulture: I A, I-IV), and an eligibility calculator (`CheckEligibility.aspx`, ddlCategory/ddlClass). The contractor list is behind login. cpwd.gov.in itself is unreachable.
 2. **State PWD / WRD / RWD / PHED**: not on any of these four sites; each state needs its own discovery.
 3. **MES**: mes.gov.in has `/tenders` (~535 pages x 10, title/start/end/PDF), `/works/product-approval` (~26 pages of approval letters + "list of approved products as on 15 Oct 2026" PDF: firm, product, approval letter, valid-up-to; it has a text layer), `/works/consultancy-miscellaneous` (consolidated list of approved consultants, PDF, Aug 2025; renewal letters; enlistment policy Feb 2025). The enlistment portal CCEP (`egov.mes.gov.in/CCEP/login`) and Product Approval Portal (`/PAP/login`) are login-only.
 4. **RDSO / railway vendors**: RDSO's UVAM link goes to IREPS `cvapApprovalofVendorAnony.jsp`. The vendor directory (`vndrDirectoryAnon.do`) and item master (`viewItemMasterAnon.do`) need a guest mobile number + OTP, so they are not scrapeable without sign-in. Open: `itemVendorCountReport.do` (item/vendor counts per directorate, no names). Not yet checked: RDSO "list of items with few sources" (`view_section.jsp?lang=1&id=0,5,6634`).
 5. **NHAI / MoRTH**:
    - NHAI `tenderlist` (242 live, fields: id, title, publish_date, tender_no, bid end/opening dates); `get_category` (vid=tenderdepartment/tendercategory); `commontype` (tid=blacklisted-debarred-firms: a Power BI embed + the internal page "individuals/agencies debarred by MoRTH/NHAI/NHIDCL/PWDs"); `rest_api` (nid=publication-rating-dpr-consultants: DPR/AE/IE consultant and contractor ratings); contract-management circulars.
    - MoRTH `orders-and-notices`: 2,177 documents, including a 38-document "Related to Debarment and Blacklisting" group and suspension/speaking orders naming firms. MoRTH tenders link out to eprocure / World Bank portals; no empanelment table.
-6. **PMGSY OMMAS**: unreachable (pmgsy.nic.in blocked, omms.nic.in no DNS). A web search found no public contractor/PAN report; a parliamentary reply says no central blacklist is kept (states hold them).
+6. **PMGSY OMMAS**: the citizen reports moved to **pmgsy.dord.gov.in** (`/Home/CitizenPage`). Proposals → *Contractor
+   Information* is the **contractor master** per state, filterable by contractor status (Active / Inactive / **Blacklisted** /
+   Expired): company, contact person, state registration number, address, phones, e-mail and PAN (masked by the site: first five
+   and last character). It is an SSRS report with a CSV export (four requests a state and status; `adapters/pmgsy.py`). Sizes:
+   Uttar Pradesh 4,897 active, Sikkim 519; Assam lists 15 blacklisted, Bihar / MP / Rajasthan / Odisha / Maharashtra none.
+   Same site, not yet scraped: Work Awarded → *Agreement Details* (works with their contractor and agreement value; filters
+   state / district / year / batch / scheme), the dashboard's *KPI Based Contractors' Performance* (`/dbweb`), quality-monitor
+   grading abstracts. The officials' OMMAS is login-only (`pmgsygov.dord.gov.in`).
 
 ## What the family scrapes now (family.py)
 
@@ -45,7 +62,14 @@ No pair shares a platform, so the "family = one platform" rule does not hold for
 | `contractor-registration-nhai-tenders` | nhai.gov.in | 6 pages of `tenderlist` (242 live) | one per tender with `tenderdetail` (dates, tender no, documents) and an `is_empanelment` flag | all tender documents |
 | `contractor-registration-nhai-tender-archive` | nhai.gov.in | 223 pages over 8 archive endpoints (2018-2025, ~10,900 tenders); at most 5 of the 8 nhai.gov.in workers | as above | all tender documents (~3.5 MB a tender) |
 | `contractor-registration-nhai-pages` | nhai.gov.in | 7 CMS pages + `commontype` blacklisted-debarred-firms | ratings documents (DPR, AE/IE, contractor), debarment orders (date, order no, subject), standard RFP/RFQ documents, procurement manual, NHAI web-application catalogue (links) | all linked documents |
-| `contractor-registration-morth-documents` | morth.gov.in | 74 items (8 document pages, ~100 documents an item) | one per document: group, title, dates, wing, circular no, URL, `contractor_related` flag | every document (~7,000) |
+| `contractor-registration-morth-documents` | morth.gov.in | 74 items (8 document pages, ~100 documents an item); weekly: each page once, new documents only | one per document: group, title, dates, wing, circular no, URL, `contractor_related` flag | every document (~7,000) |
+| `contractor-registration-mes-works` | mes.gov.in via Indian proxy | 30 table pages (product approval, consultancy, contract policy, technical information) + weekly first pages | one per table row with its columns | every attachment (approved products list, approved consultants, enlistment policy, approval letters) |
+| `contractor-registration-cpwd-contractors` | erp.cpwd.gov.in via Indian proxy | 55 pages of 200 + the debarred and suspended lists, again every month | one per contractor / row with its columns and order links | none (orders need a login) |
+| `contractor-registration-pmgsy-contractors` | pmgsy.dord.gov.in via Indian proxy | 37 states x 4 statuses, again every month | one per contractor (company, person, registration no, address, phones, e-mail, masked PAN, status) | the CSV export per state and status |
+| `contractor-registration-ocr` (off for now: `OCR = False`) | the family bucket | 485 batches of ~250 pages (16,081 scans, 111,705 pages; `queues/ocr.json.gz`) | one per scan: source project and path, the records that cite it, OCR text | `<source project>/<path>.txt` |
+
+The live NHAI tenders are read every day (`tenders-<YYYYMMDD>-p<k>`), the NHAI pages every week. When OCR is on, projects with `OCR=1` read
+scans with tesseract as they store them.
 
 Files are stored in the family bucket under `<project>/`:
 
@@ -59,14 +83,13 @@ docs/<section>/<hash8>-<name>.<ext>       doc, docx, xls, xlsx, zip, ...
 The record of each stored file has `path`, `sha256`, `bytes`, `pages`, `needs_ocr`, `text_path`, `text_chars` and `text`.
 What has been collected, how to query it and what it shows: [DATA.md](DATA.md).
 
-## Status (2026-10-29)
+## Status (2026-11-01)
 
-- Registered on the hub (setup, 16:18 UTC): 4 projects, 311 queue items, 2 health checks. Bucket `s1d-labs-trideep`.
-- First hour: 6,611 MoRTH documents and 3,829 NHAI archive tenders; 29,918 files (21.4 GiB) in the bucket.
+- 2026-10-29/30: the first pass finished: all 311 queue items done but one MoRTH item (`public-notices-part5`, whose list request
+  failed for three hours and used up its 40 tries; setup now resets such items). 17,978 records, 63,686 files (48 GiB) in the bucket.
 - NHAI tender numbers are mostly not on CPPP: 846 of 3,824 archive tenders match `gepnic-etenders` (22%).
-- Fixes waiting in PR #4: NUL characters in PDF text made the hub refuse record batches (6 MoRTH items retrying); runs no longer
-  start an item in their last 15 minutes; the archive is capped at 5 workers so the live tenders and the ratings / debarment
-  pages start.
+- 2026-11-01: MES back in the pool through the Indian proxies; PMGSY contractor master added; OCR of the 16,081 stored scans
+  ready but off for now (load); daily / weekly / monthly refresh; documents unchanged on the site are not fetched again.
 
 ## Login-only sections (links only, not scraped)
 
@@ -83,9 +106,11 @@ What has been collected, how to query it and what it shows: [DATA.md](DATA.md).
 
 ## Next scopes
 
+- PMGSY *Agreement Details* (contractor → road works awarded, agreement value) and *KPI Based Contractors' Performance*: same site
+  and the same SSRS export as the contractor master.
+- pmgsytenders.gov.in is a GePNIC portal that no family scrapes yet: a fit for the `gepnic` family (its owner adds the portal).
 - MES tenders: not queued, `gepnic-defproc` already has them (7 of 7 sampled CPPP ids, 552,817 MES records). The `mes` adapter reads
   `tenders` pages too (`{"path": "tenders", "page": N}`) if they are ever needed.
-
 - IREPS open report: item/vendor counts per directorate (`itemVendorCountReport.do`).
 - RDSO "list of items with few sources" (`view_section.jsp?lang=1&id=0,5,6634`).
 - NHAI Power BI report of debarred contractors (public embed; no table behind the API).
@@ -93,7 +118,7 @@ What has been collected, how to query it and what it shows: [DATA.md](DATA.md).
 
 ## Open questions
 
-- Do GitHub Actions runners reach cpwd.gov.in and pmgsy.nic.in?
-- Real OMMAS public hostname.
-- An Indian runner (e.g. a self-hosted GitHub Actions runner on an Indian VPS) would open mes.gov.in, and possibly cpwd.gov.in and
-  pmgsy.nic.in, to the pool: does the hub accept runs from self-hosted runners?
+- cpwd.gov.in resets connections from every Indian exit tried (Delhi VPS, Mumbai proxies, real Chrome); its content moved to
+  erp.cpwd.gov.in. The enlistment rule books (cpwd.gov.in/writereaddata/...) are linked from CEMS but not reachable.
+- Answered: the OMMAS public reports are on pmgsy.dord.gov.in; India-only sites run in the pool through `proxy="IN"` (no
+  self-hosted runner needed).

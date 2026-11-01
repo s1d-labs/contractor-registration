@@ -1,9 +1,13 @@
 name: setup
 
 # Puts this family's projects in the pool and registers its health checks (setup_family.py). Run it by hand after changing
-# family.py. The hub trusts this repo (s1d-labs/<family>) through the GitHub OIDC token; no secrets are needed.
+# family.py; it also runs every day at 07:00 IST to add the day's refresh items (live NHAI tenders; weekly MoRTH, NHAI pages, MES).
+# The hub trusts this repo (s1d-labs/<family>) through the GitHub OIDC token; no secrets are needed.
+# GitHub stops scheduled workflows after 60 days without commits to the repo: then run it by hand once (or push) to restart it.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "30 1 * * *"
 
 permissions:
   id-token: write
