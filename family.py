@@ -66,9 +66,14 @@ PMGSY_STATES = {1: "Andaman And Nicobar (UT)", 2: "Andhra Pradesh", 3: "Arunacha
 # MES tenders are not queued: the gepnic family already holds them from defproc.gov.in under the same CPPP ids
 
 
+# OCR is off for now, to keep the load down: scans are stored under ocr-needed/ for later. OCR = True (then the setup workflow)
+# reads new scans as they are stored and puts the -ocr project, which reads the stored ones (queues/ocr.json.gz), in the pool.
+OCR = False
+
+
 def _env(adapter, site, ocr=True):
     """OCR=1: scans are read with tesseract as they are stored (adapters/ocr.py)."""
-    return {"ADAPTER": adapter, "SITE": site, **({"OCR": "1"} if ocr else {})}
+    return {"ADAPTER": adapter, "SITE": site, **({"OCR": "1"} if ocr and OCR else {})}
 
 
 def _queue(name):
@@ -147,16 +152,15 @@ PROJECTS = [
         "items": [{"key": f"{code:02d}-{status}{sfx}", "payload": {"state": code, "state_name": name, "status": status}}
                   for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items() for status in "ABEI"],
     },
-    {
-        # reads the scans stored above (ocr-needed/) back from the bucket and stores their text; no site is contacted
-        "name": f"{FAMILY}-ocr",
-        "title": "OCR text of the scanned documents",
-        "task": "crawl", "target": "ocr.s1d-labs-trideep", "env": {"ADAPTER": "ocr"},
-        "max_workers": 8,
-        "unit_label": "batch", "record_label": "document",
-        "items": _queue("ocr.json.gz"),
-    },
-]
+] + ([{
+    # reads the scans stored above (ocr-needed/) back from the bucket and stores their text; no site is contacted
+    "name": f"{FAMILY}-ocr",
+    "title": "OCR text of the scanned documents",
+    "task": "crawl", "target": "ocr.s1d-labs-trideep", "env": {"ADAPTER": "ocr"},
+    "max_workers": 8,
+    "unit_label": "batch", "record_label": "document",
+    "items": _queue("ocr.json.gz"),
+}] if OCR else [])
 
 # Health checks, shown on scrape.s1d.me. No project names them (probe=""): the hub checks from its own server, which these sites
 # have not answered since 2026-10-30, and a failing probe would hold the work that GitHub runners and the proxies can still do.

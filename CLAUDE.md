@@ -13,7 +13,8 @@ text is on home.s1d.me → Docs → Scraper guide (Part 2), and on team boxes at
   reads stored scans back from the bucket), picked by the project's `env.ADAPTER`. Each adapter has pure `parse_*` functions tested
   on saved responses (`tests/test_adapters.py`, `tests/pages/`) and `run(ctx, payload)` for one queue item; `adapters/common.py`
   holds the counted requests, document storage (with `seen/<sha1>.json` markers so unchanged documents are not fetched twice),
-  PDF text, and inline OCR when the project's env has `OCR=1`.
+  PDF text, and inline OCR when the project's env has `OCR=1`. OCR is off for now (`OCR = False` in `family.py`): scans are
+  stored under `ocr-needed/` for later.
 - `family.py` adds dated refresh items (live NHAI tenders daily; MoRTH, NHAI pages, MES weekly; PMGSY monthly); the setup workflow
   runs every day to seed them. `queues/` holds items built from what is stored (`tools/build_queues.py`, run on a team box):
   the OCR batches and the MoRTH ids collected before.

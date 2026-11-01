@@ -10,10 +10,10 @@ one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks 
 | `morth` | morth.gov.in (Angular + Laravel JSON API) | `-morth-documents` (weekly: new documents only) |
 | `mes` | mes.gov.in (Drupal 11 tables), through the hub's Indian proxies | `-mes-works` (weekly) |
 | `pmgsy` | pmgsy.dord.gov.in (OMMAS citizen reports, SSRS CSV export), through the Indian proxies | `-pmgsy-contractors` (monthly) |
-| `ocr` | the family's own bucket: scans read back and OCR'd with tesseract (English + Hindi) | `-ocr` |
+| `ocr` | the family's own bucket: scans read back and OCR'd with tesseract (English + Hindi) | `-ocr` (off for now: `OCR = False` in family.py) |
 
 Documents go to the family bucket as `pdf/` (with the extracted text beside each as `.pdf.txt`), `ocr-needed/` (scans without a
-text layer) and `docs/`; the OCR text of the scans is in `contractor-registration-ocr/`. Where the records and files end up and
+text layer, kept for a later OCR pass) and `docs/`. Where the records and files end up and
 what they show: [DATA.md](DATA.md). What each site offers, what is behind a login, and what comes next: [DISCOVERY.md](DISCOVERY.md).
 
 The setup workflow runs every day: it adds the day's live-tender items and the week's / month's refresh items. A document stored

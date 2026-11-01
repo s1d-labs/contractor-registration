@@ -58,9 +58,9 @@ No pair shares a platform, so the "family = one platform" rule does not hold for
 | `contractor-registration-morth-documents` | morth.gov.in | 74 items (8 document pages, ~100 documents an item); weekly: each page once, new documents only | one per document: group, title, dates, wing, circular no, URL, `contractor_related` flag | every document (~7,000) |
 | `contractor-registration-mes-works` | mes.gov.in via Indian proxy | 30 table pages (product approval, consultancy, contract policy, technical information) + weekly first pages | one per table row with its columns | every attachment (approved products list, approved consultants, enlistment policy, approval letters) |
 | `contractor-registration-pmgsy-contractors` | pmgsy.dord.gov.in via Indian proxy | 37 states x 4 statuses, again every month | one per contractor (company, person, registration no, address, phones, e-mail, masked PAN, status) | the CSV export per state and status |
-| `contractor-registration-ocr` | the family bucket | 485 batches of ~250 pages (16,081 scans, 111,705 pages; `queues/ocr.json.gz`) | one per scan: source project and path, the records that cite it, OCR text | `<source project>/<path>.txt` |
+| `contractor-registration-ocr` (off for now: `OCR = False`) | the family bucket | 485 batches of ~250 pages (16,081 scans, 111,705 pages; `queues/ocr.json.gz`) | one per scan: source project and path, the records that cite it, OCR text | `<source project>/<path>.txt` |
 
-The live NHAI tenders are read every day (`tenders-<YYYYMMDD>-p<k>`), the NHAI pages every week. Projects with `OCR=1` read
+The live NHAI tenders are read every day (`tenders-<YYYYMMDD>-p<k>`), the NHAI pages every week. When OCR is on, projects with `OCR=1` read
 scans with tesseract as they store them.
 
 Files are stored in the family bucket under `<project>/`:
@@ -81,7 +81,7 @@ What has been collected, how to query it and what it shows: [DATA.md](DATA.md).
   failed for three hours and used up its 40 tries; setup now resets such items). 17,978 records, 63,686 files (48 GiB) in the bucket.
 - NHAI tender numbers are mostly not on CPPP: 846 of 3,824 archive tenders match `gepnic-etenders` (22%).
 - 2026-11-01: MES back in the pool through the Indian proxies; PMGSY contractor master added; OCR of the 16,081 stored scans
-  queued; daily / weekly / monthly refresh; documents unchanged on the site are not fetched again.
+  ready but off for now (load); daily / weekly / monthly refresh; documents unchanged on the site are not fetched again.
 
 ## Login-only sections (links only, not scraped)
 

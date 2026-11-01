@@ -4,7 +4,7 @@ The family `contractor-registration` collects what nhai.gov.in and morth.gov.in 
 supervise India's national highways (tenders and empanelment calls, consultant and contractor ratings, debarment orders, model
 contracts and circulars), MES's approved products and consultants, and the PMGSY contractor master of rural road works (every
 state's registered contractors with registration number, contacts, masked PAN and status, blacklisted included). Scanned
-documents are OCR'd. Site discovery and login-only sections: [DISCOVERY.md](DISCOVERY.md).
+documents are stored for a later OCR pass (the OCR code is ready, switched off for now). Site discovery and login-only sections: [DISCOVERY.md](DISCOVERY.md).
 
 ## How it works
 
@@ -32,7 +32,7 @@ family.py ──(Actions → setup)──▶ scrape-hub: projects, queue items, 
 - **Queue items** are pages of work (50 tenders, ~100 documents, one CMS page). An item is done once; a failed one is retried
   after 3 minutes (up to 40 times), and an item claimed by a run that goes silent is handed to another run after 5 minutes.
 - **Speed**: at most 8 workers per site; the archive takes at most 5 so live tenders and pages get the rest; MES and PMGSY 2 each
-  (one proxy each, the family may hold 4); OCR 8. Every request is counted (`n_http`, `t_http_s`, `http_<code>`) and the hub
+  (one proxy each, the family may hold 4); OCR 8 when it is on. Every request is counted (`n_http`, `t_http_s`, `http_<code>`) and the hub
   slows the family down if a site struggles. The health checks are registered but no project waits on them: the hub checks
   from a server these sites do not answer (since 2026-10-30).
 - **Code changes** reach the pool through `main` only: merge a PR and the next runs use it. A change to `family.py` (new
@@ -177,7 +177,7 @@ with psycopg.connect("dbname=scrape_hub host=127.0.0.1") as db:
             body = s3.get_object(Bucket=env["B2_BUCKET"], Key=f"contractor-registration-morth-documents/{f['path']}")["Body"].read()
 ```
 
-**OCR**: done in the pool (project `-ocr`, `adapters/ocr.py`: pypdfium2 renders each page at 200 dpi, tesseract reads English
+**OCR** (off for now, `OCR = False` in family.py; turn it on and run setup when the load is fine): in the pool (project `-ocr`, `adapters/ocr.py`: pypdfium2 renders each page at 200 dpi, tesseract reads English
 and Hindi, ~6 CPU-seconds a page). New scans are read as they are stored. To queue the scans that are not read yet (e.g. after a
 pool run failed on some), run `python tools/build_queues.py` on the box, commit `queues/`, run setup. To try it on the box:
 `eval "$(mybucket env)"; python crawl.py --local ocr '<one payload from queues/ocr.json.gz>'`.
@@ -195,8 +195,8 @@ The first pass finished on 2026-10-30 01:20 UTC (about 9 hours): every queue ite
 | bucket | | 63,686 objects | | 48.0 GiB of 500 |
 
 Added 2026-11-01 (running in the pool after setup): `mes-works` (34 items), `pmgsy-contractors` (296 items: 37 states x 4
-statuses, now and every month), `ocr` (485 batches: 16,081 scans, 111,705 pages; ~45 runner-hours, about 6 hours with 8
-workers). From the box, through a proxy: Uttar Pradesh alone has 4,897 active PMGSY contractors (4,782 with a masked PAN), Sikkim
+statuses, now and every month), and, when switched on, `ocr` (485 batches ready: 16,081 scans, 111,705 pages; ~45 runner-hours,
+about 6 hours with 8 workers). From the box, through a proxy: Uttar Pradesh alone has 4,897 active PMGSY contractors (4,782 with a masked PAN), Sikkim
 519, Assam 15 blacklisted.
 
 ### What it shows
@@ -210,7 +210,7 @@ workers). From the box, through a proxy: Uttar Pradesh alone has 4,897 active PM
    documents are the record of who gets empanelled.
 3. **Debarment is published as orders, not as a list.** MoRTH's "Related to Debarment and Blacklisting" group has **38 orders**
    (March 2023 to October 2026) naming firms and their associates; NHAI's page lists **100** NHIDCL / MoRTH / NHAI / PWD orders
-   (date, order number, subject naming the person or firm), each with its PDF. Many are scans: the OCR project gives them text.
+   (date, order number, subject naming the person or firm), each with its PDF. Many are scans, waiting for the OCR pass.
    PMGSY is the only source with a **blacklisted status per contractor** (Assam 15; most states list none).
 4. **The PMGSY contractor master is the closest thing to a public register**: per state, every contractor registered for rural
    road works with the state registration number, address, phones and a masked PAN (first five and last character: enough to
