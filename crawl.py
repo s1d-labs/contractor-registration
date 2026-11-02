@@ -36,11 +36,29 @@ def local(name, payload):
     print(f"{n} records, counters {hub.counts}", file=sys.stderr)
 
 
+def site_answers(ctx, site, tries=2):
+    """A proxied run's first look at the site. Some sites refuse some of the hub's proxies (mes.gov.in answers only the
+    91.124.42.x ones, 2 Nov 2026): better to give the proxy back than to fail queue items through it."""
+    for _ in range(tries):
+        r = ctx.request("GET", site, timeout=45, stream=True)
+        if r is not None:
+            r.close()
+            return True
+    return False
+
+
 def main():
     from scrape_hub_client import HubClient      # imported here so --local works without it
     run = adapter(ADAPTER).run
     hub = HubClient(PROJECT, job_index=int(os.environ.get("SCRAPE_JOB_INDEX", "0")), total_jobs=int(os.environ.get("SCRAPE_TOTAL_JOBS", "1")))
     ctx = Ctx(hub, project=PROJECT, deadline=DEADLINE)
+    site, exit_ip = os.environ.get("SITE", ""), os.environ.get("SCRAPE_PROXY_EXIT", "")
+    if (os.environ.get("SCRAPE_PROXY") or os.environ.get("HTTPS_PROXY")) and site and not site_answers(ctx, site):
+        hub.metric("proxy_refused")
+        via = exit_ip or os.environ.get("SCRAPE_PROXY_LABEL") or "proxy"
+        hub.failure("proxy", f"{site} via {via}"[:200], f"{site} does not answer through this proxy: no item claimed")
+        hub.close("failed", f"{site} does not answer through {via}"[:200])
+        sys.exit(3)                                     # non-zero: the worker waits a while before asking for work again
     try:
         while time.time() < DEADLINE - ITEM_S:
             if hub.settings.get("paused"):

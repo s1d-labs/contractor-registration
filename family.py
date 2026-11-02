@@ -65,12 +65,17 @@ PMGSY_STATES = {1: "Andaman And Nicobar (UT)", 2: "Andhra Pradesh", 3: "Arunacha
                 36: "Telangana", 37: "Ladakh (UT)"}   # the site's state codes (its State list)
 CPWD_PAGES = 55     # pages of 200 in CPWD's contractor list (9,736 on 2026-11-01)
 STATE_LISTS = ["gujarat-rnb-civil", "gujarat-rnb-electrical"]   # adapters/statepwd.py LISTS: state contractor registers (PDF)
+MH_LISTS = ["maharashtra-pwd-civil", "maharashtra-pwd-electrical"]   # on the S3WaaS CDN: answers from anywhere, no proxy
 # MES tenders are not queued: the gepnic family already holds them from defproc.gov.in under the same CPPP ids
 
 
 # OCR is off for now, to keep the load down: scans are stored under ocr-needed/ for later. OCR = True (then the setup workflow)
 # reads new scans as they are stored and puts the -ocr project, which reads the stored ones (queues/ocr.json.gz), in the pool.
 OCR = False
+
+# The hub owner's pause on Indian proxies and Indian servers (2 Nov 2026, ~24 hours, while 40 more proxies are added): projects
+# with proxy="IN" are taken out of the pool (set_pool(pool=False)); their queues are kept. Set back to False, then run setup.
+HOLD_PROXIED = True
 
 
 def _env(adapter, site, ocr=True):
@@ -106,7 +111,9 @@ PROJECTS = [
         # details and documents for every tender (~5 MB a tender, ~50 GB in all)
         "items": [{"key": f"{ep}-p{k}", "payload": {"kind": "tenders", "endpoint": ep, "page": k, "detail": True, "files": True,
                                                     "section": f"tenders-archive/{ep}", "expected": 50}}
-                  for ep, total in NHAI_ARCHIVE.items() for k in range(ceil(total / 50))],
+                  for ep, total in NHAI_ARCHIVE.items() for k in range(ceil(total / 50))]
+                 # documents the first pass stored empty (the site answered 200 with no body), fetched again
+                 + _queue("nhai_refetch.json.gz"),
     },
     {
         "name": f"{FAMILY}-nhai-pages",
@@ -188,6 +195,16 @@ PROJECTS = [
         "proxy": "IN", "max_workers": 1,
         "unit_label": "list", "record_label": "contractor",
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}} for sfx in ("", f"-{MONTH}") for name in STATE_LISTS],
+    },
+    {
+        # Maharashtra PWD publishes its registers in the RTI manual (no. 13), as PDFs on the S3WaaS CDN (8,966 civil, 632
+        # electrical rows; registrations mostly valid up to 2013-2017). Checked again every month in case a new list goes up.
+        "name": f"{FAMILY}-state-pwd-maharashtra",
+        "title": "Maharashtra PWD registered civil and electrical contractors (RTI manual no. 13)",
+        "task": "crawl", "target": "cdnbbsr.s3waas.gov.in", "env": _env("statepwd", "https://cdnbbsr.s3waas.gov.in", ocr=False),
+        "max_workers": 1,
+        "unit_label": "list", "record_label": "contractor",
+        "items": [{"key": f"{name}{sfx}", "payload": {"list": name}} for sfx in ("", f"-{MONTH}") for name in MH_LISTS],
     },
     {
         # the vendor directory is on IREPS behind a mobile-OTP sign-in; RDSO's own page lists the items with few sources

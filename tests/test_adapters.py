@@ -364,3 +364,57 @@ def test_an_empty_answer_is_not_stored(tmp_path, monkeypatch):
     ctx = common.Ctx(common.LocalHub("p"), project="p")
     monkeypatch.setattr(ctx, "request", lambda method, url, **kw: FakeResponse(b"", {"Content-Type": "application/pdf"}))
     assert ctx.download("https://nhai.gov.in/nhai/sites/default/files/1_NIT.pdf", "tenders") is None
+
+
+def test_nhai_refetch_records_only_documents_that_now_load():
+    class Stub:
+        def __init__(self):
+            self.records = {}
+
+        def download(self, url, section, headers=None):
+            return {"path": f"pdf/{section}/x.pdf", "bytes": 10} if url.endswith("ok.pdf") else None
+
+        def record(self, rid, data):
+            self.records[rid] = data
+
+    ctx = Stub()
+    n = nhai.run(ctx, {"kind": "refetch", "section": "tenders-archive/tenderarchive",
+                       "documents": [{"tender": "1", "url": "https://nhai.gov.in/a/ok.pdf"}, {"tender": "2", "url": "https://nhai.gov.in/b/empty.pdf"}]})
+    [(rid, data)] = ctx.records.items()
+    assert n == 1 and rid == f"refetch-{common.sha1('https://nhai.gov.in/a/ok.pdf')[:16]}" and data["tender_record"] == "tender-1"
+
+
+def test_family_refetch_items_are_on_the_archive_project():
+    import family
+    archive = next(p for p in family.PROJECTS if p["name"].endswith("-nhai-tender-archive"))
+    refetch = [i for i in archive["items"] if i["payload"].get("kind") == "refetch"]
+    assert refetch and all(i["payload"]["section"].startswith("tenders-archive/") for i in refetch)
+    assert sum(len(i["payload"]["documents"]) for i in refetch) >= 2000
+
+
+def test_maharashtra_electrical_list_groups_rows_by_district_and_class():
+    rows = statepwd.parse_mh(statepwd.pdf_pages((PAGES / "maharashtra_pwd_electrical.pdf").read_bytes()))
+    assert [r["sr"] for r in rows] == [str(k) for k in range(1, 16)]
+    r = rows[1]
+    assert (r["district"], r["class"], r["contractor_number"], r["company"]) == ("Ahmadnagar", "A", "A-38", "M/s. A. B. Electricals")
+    assert r["address"] == "Maliwada, Near Veshi, Ahmadnagar.," and r["valid_upto"] == "6/9/2017" and r["emd_exempted"] == "N"
+    assert rows[-1]["class"] == "Unemployed Engineers(D class)" and rows[-1]["company"].startswith("M/s. Mawal Infrastructure")
+    assert len({statepwd.mh_row_id("maharashtra-pwd-electrical", r) for r in rows}) == 15
+
+
+def test_maharashtra_civil_list_registration_numbers_and_dates():
+    rows = statepwd.parse_mh(statepwd.pdf_pages((PAGES / "maharashtra_pwd_civil.pdf").read_bytes()))
+    assert len(rows) == 11 and rows[0]["district"] == "Ahmadnagar"
+    assert (rows[1]["registration_no"], rows[1]["registered_on"]) == ("6993", "5/8/2009")
+    assert (rows[1]["valid_upto"], rows[1]["exempted_upto"], rows[1]["emd_exempted"]) == ("21/07/2014", "21/07/2014", "Y")
+    assert rows[-1]["class"] == "I" and rows[-1]["registered_on"] == "27/10/2010"       # the class header on the second page
+
+
+def test_pmgsy_awarded_cost_repeated_per_package_is_marked():
+    works = [{"package": "CG1639", "sanction_cost_lakh": s, "awarded_cost_lakh": "5111.40"} for s in ("123.20", "144.34", "253.98")]
+    works += [{"package": "SK03", "sanction_cost_lakh": s, "awarded_cost_lakh": a} for s, a in (("201.19", "199.19"), ("195.17", "193.25"))]
+    works += [{"package": "BM0201", "sanction_cost_lakh": "1.01", "awarded_cost_lakh": "1.01"}]
+    marked = {(w["package"], w["awarded_is_package_total"]) for w in pmgsy.mark_package_totals(works)}
+    assert marked == {("CG1639", True), ("SK03", False), ("BM0201", False)}
+    gone = pmgsy.mark_package_totals([{"package": "X", "sanction_cost_lakh": "1"}])
+    assert "awarded_is_package_total" not in gone[0]

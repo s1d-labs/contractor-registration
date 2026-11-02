@@ -102,6 +102,22 @@ def parse_works(csv_text):
     return out
 
 
+def mark_package_totals(works):
+    """Some states give each work its own awarded cost; others repeat the package's agreement amount on every work of the
+    package (Chhattisgarh CG1639: 5,111.40 lakh on its 5 roads). `awarded_is_package_total` marks the second case, so a sum
+    takes that amount once per package. Pure."""
+    by = {}
+    for w in works:
+        by.setdefault(w.get("package"), []).append(w)
+    for pk in by.values():
+        amounts = {w.get("awarded_cost_lakh") for w in pk}
+        repeated = len(pk) > 1 and len(amounts) == 1 and "" not in amounts and len({w.get("sanction_cost_lakh") for w in pk}) > 1
+        for w in pk:
+            if "awarded_cost_lakh" in w:
+                w["awarded_is_package_total"] = repeated
+    return works
+
+
 def work_id(state_code, kind, w):
     """A package can hold two bridges of the same name (Sikkim SK03P7P11R): the cost and lengths tell them apart."""
     return f"{state_code}-{kind}-{sha1(w['package'], w['work_name'], w['work_type'], w['sanction_year'], w['block'], w['sanction_cost_lakh'], w.get('road_length_km', ''), w.get('bridge_length_m', ''))[:14]}"
@@ -165,7 +181,7 @@ def agreements(ctx, payload):
         exp = ctx.request("GET", exp_url, timeout=900)
         if exp is None:
             return None
-        works = parse_works(exp.content.decode("utf-8-sig", "replace"))
+        works = mark_package_totals(parse_works(exp.content.decode("utf-8-sig", "replace")))
         stored = ctx.hub.upload_many([(f"docs/agreements/{code:02d}-{kind}-{time.strftime('%Y%m%d')}.csv", exp.content, "text/csv")])[0]
         for w in works:
             ctx.record(work_id(code, kind, w), {"kind": f"pmgsy_work_{kind}", "state_code": code, **w,

@@ -1,6 +1,15 @@
-# C01–C06: Contractor, vendor and empanelment registers (planned sources, india.s1d.me)
+# Discovery notes: contractor, vendor and empanelment registers (internal)
 
-**Status:** ⏳ RUNNING. 5 of the 6 planned sources have their open data collected or ready; C04 (RDSO vendors) is ⛔ BLOCKED behind
+Internal, consolidated notes for the whole family: sites, reachability, logins, decisions. **The reports to publish are one per
+planned source:** [C01 CPWD](report-C01.md) · [C02 State PWD](report-C02.md) · [C03 MES](report-C03.md) · [C04 RDSO / IREPS](report-C04.md)
+· [C05 NHAI / MoRTH](report-C05.md) · [C06 PMGSY](report-C06.md) (2 Nov 2026). The snapshot below is from 1 Nov 2026; the reports are newer.
+
+Since 1 Nov: PR #6 merged and seeded (PMGSY works 207,187 records, Gujarat 9,421); MES answers only the `91.124.42.x` proxies
+(PR #7 makes runs give back refused proxies); Maharashtra PWD lists parsed (PR #7); Rajasthan PWD has no public list (SSO login),
+Karnataka's registration portal answers 502; `tools/ireps_vendors.py` signs in to IREPS with a person at the keyboard (PR #7);
+PMGSY awarded cost repeats the package amount on each work in 24,629 packages (flagged in PR #7).
+
+**Status (1 Nov):** ⏳ RUNNING. 5 of the 6 planned sources have their open data collected or ready; C04 (RDSO vendors) is ⛔ BLOCKED behind
 an IREPS mobile-OTP sign-in, and MES (C03) stopped answering the proxies tonight.
 **Updated:** 1 Nov 2026 21:28 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@4de2805`
 (branch `agreements-gujarat-rdso`, pushed, PR open; `main` = `79de30a`, PR #5)
