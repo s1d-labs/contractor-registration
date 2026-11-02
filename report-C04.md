@@ -40,7 +40,7 @@ manual pull is ready. RDSO's open item lists (133 items) are built, but 0 / 2 it
 - **IREPS sign-in (needs the phone that gets the OTP), once PR #7 is merged:**
   ```
   cd ~/contractor-registration && git pull
-  myproxy --hours 2 --why "IREPS vendor directory" run ~/.venvs/cr/bin/python tools/ireps_vendors.py login
+  ~/.venvs/cr/bin/python tools/ireps_vendors.py login
   ```
   It asks for the mobile number, prints the path of the verification image (open it in VS Code), asks for the code, sends the
   OTP, and asks for the OTP (not shown). The landing page goes to `~/ireps-export/<date>/landing.html`. Tell Claude when it's
@@ -104,8 +104,8 @@ where project = 'contractor-registration-rdso-items' order by (data->>'vendor_co
 | 3 | Lists are from 03.06.2024 (at the source) | 3 PDFs | Checked monthly for new files. |
 
 ## 10. Risks and open decisions
-- **Risks:** an IREPS session is tied to the address it was opened from, so the whole pull must run through one proxy
-  (`myproxy --hours 2`). IREPS limits OTPs per number ("Maximum OTP limit exceeded").
+- **Risks:** an IREPS session is tied to the address it was opened from. ireps.gov.in answers the team box directly (2 Nov), so
+  the whole pull runs from the box without a proxy. IREPS limits OTPs per number ("Maximum OTP limit exceeded").
 - **To decide (trideep):** whether the IREPS terms allow storing the directory, and who signs in each month.
 
 ## 11. Next steps

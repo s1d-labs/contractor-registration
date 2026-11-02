@@ -2,13 +2,14 @@
 
 The directory is open to guests who sign in with an Indian mobile number, an image verification code and an OTP sent to that
 phone. A person does the sign-in; this script only keeps the session and reads the directory pages in it, gently. Run it on a
-team box through one Indian proxy for the whole session (the session is tied to the address it was opened from):
+team box: ireps.gov.in answers the box directly (2 Nov 2026), no proxy needed. Keep every step on the same address (the session is
+tied to it): all on the box directly, or all through one `myproxy --hours 2 run …`.
 
-    myproxy --hours 2 --why "IREPS vendor directory" run python tools/ireps_vendors.py login
+    python tools/ireps_vendors.py login
         asks for the mobile number, shows the verification image (opens the PNG path it prints: VS Code shows it), asks for
         the code, sends the OTP, asks for the OTP. Saves the session and the first directory page.
-    myproxy run python tools/ireps_vendors.py fetch '<path or URL on ireps.gov.in>'      one more page in the same session
-    myproxy run python tools/ireps_vendors.py export                                      the whole directory (once mapped)
+    python tools/ireps_vendors.py fetch '<path or URL on ireps.gov.in>'      one more page in the same session
+    python tools/ireps_vendors.py export                                      the whole directory (once mapped)
 
 Nothing about the person is written anywhere: the mobile number and OTP are only sent to IREPS. The session cookies stay in
 ~/.cache/s1d/ireps-session.json (readable by you only) and expire on IREPS's side after a while. Pages go to ~/ireps-export/<date>/;

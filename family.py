@@ -73,6 +73,10 @@ MH_LISTS = ["maharashtra-pwd-civil", "maharashtra-pwd-electrical"]   # on the S3
 # reads new scans as they are stored and puts the -ocr project, which reads the stored ones (queues/ocr.json.gz), in the pool.
 OCR = False
 
+# The hub owner's pause on Indian proxies and Indian servers (2 Nov 2026, ~24 hours, while 40 more proxies are added): projects
+# with proxy="IN" are taken out of the pool (set_pool(pool=False)); their queues are kept. Set back to False, then run setup.
+HOLD_PROXIED = True
+
 
 def _env(adapter, site, ocr=True):
     """OCR=1: scans are read with tesseract as they are stored (adapters/ocr.py)."""
