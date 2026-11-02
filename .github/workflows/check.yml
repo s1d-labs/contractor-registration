@@ -60,6 +60,24 @@ jobs:
         run: >
           scrape-check --project contractor-registration-ci-cpwd --task crawl --env ADAPTER=cpwd --timeout 600
           --item '{"key": "suspended", "payload": {"list": "suspended", "cur": 1, "delta": 200}}'
+      - name: scrape-check pmgsy agreements (reachability, does not fail the check)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: >
+          scrape-check --project contractor-registration-ci-pmgsy-agreements --task crawl --env ADAPTER=pmgsy --timeout 600
+          --item '{"key": "agreements-30", "payload": {"report": "agreements", "state": 30, "state_name": "Sikkim"}}'
+      - name: scrape-check statepwd (reachability, does not fail the check)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: >
+          scrape-check --project contractor-registration-ci-statepwd --task crawl --env ADAPTER=statepwd --timeout 600
+          --item '{"key": "gujarat-rnb-electrical", "payload": {"list": "gujarat-rnb-electrical"}}'
+      - name: scrape-check rdso (reachability, does not fail the check)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: >
+          scrape-check --project contractor-registration-ci-rdso --task crawl --env ADAPTER=rdso --timeout 600
+          --item '{"key": "few-sources", "payload": {"section": "0,5,6634"}}'
       - name: scrape-check ocr (one scanned MoRTH debarment order, read with tesseract)
         if: ${{ always() }}
         run: >

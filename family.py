@@ -64,6 +64,7 @@ PMGSY_STATES = {1: "Andaman And Nicobar (UT)", 2: "Andhra Pradesh", 3: "Arunacha
                 30: "Sikkim", 31: "Tamil Nadu", 32: "Tripura", 33: "Uttar Pradesh", 34: "Uttarakhand", 35: "West Bengal",
                 36: "Telangana", 37: "Ladakh (UT)"}   # the site's state codes (its State list)
 CPWD_PAGES = 55     # pages of 200 in CPWD's contractor list (9,736 on 2026-11-01)
+STATE_LISTS = ["gujarat-rnb-civil", "gujarat-rnb-electrical"]   # adapters/statepwd.py LISTS: state contractor registers (PDF)
 # MES tenders are not queued: the gepnic family already holds them from defproc.gov.in under the same CPPP ids
 
 
@@ -167,6 +168,35 @@ PROJECTS = [
                   for sfx in ("", f"-{MONTH}") for k in range(1, CPWD_PAGES + 1)]
                  + [{"key": f"{name}{sfx}", "payload": {"list": name, "cur": 1, "delta": 200, "files": False}}
                     for sfx in ("", f"-{MONTH}") for name in ("debarred", "suspended")],
+    },
+    {
+        # the same OMMAS citizen reports: Work Awarded -> Agreement Details, drilled through to every work of a state
+        "name": f"{FAMILY}-pmgsy-agreements",
+        "title": "PMGSY works awarded per state: package, road, sanctioned and awarded cost; works awarded and terminated",
+        "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 2,
+        "unit_label": "state", "record_label": "work",
+        # 37 states (Sikkim 1,263 works, Uttar Pradesh 21,140), again every month
+        "items": [{"key": f"agreements-{code:02d}{sfx}", "payload": {"report": "agreements", "state": code, "state_name": name}}
+                  for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items()],
+    },
+    {
+        # state PWD / R&B registers published as PDF lists; rnb.gujarat.gov.in answers Indian addresses only
+        "name": f"{FAMILY}-state-pwd",
+        "title": "State PWD / R&B registered contractors (Gujarat R&B civil and electrical lists)",
+        "task": "crawl", "target": "rnb.gujarat.gov.in", "env": _env("statepwd", "https://rnb.gujarat.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "list", "record_label": "contractor",
+        "items": [{"key": f"{name}{sfx}", "payload": {"list": name}} for sfx in ("", f"-{MONTH}") for name in STATE_LISTS],
+    },
+    {
+        # the vendor directory is on IREPS behind a mobile-OTP sign-in; RDSO's own page lists the items with few sources
+        "name": f"{FAMILY}-rdso-items",
+        "title": "RDSO items with fewer than three / five approved sources, or no Indian source",
+        "task": "crawl", "target": "rdso.indianrailways.gov.in", "env": _env("rdso", "https://rdso.indianrailways.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "page", "record_label": "item",
+        "items": [{"key": f"few-sources{sfx}", "payload": {"section": "0,5,6634"}} for sfx in ("", f"-{MONTH}")],
     },
 ] + ([{
     # reads the scans stored above (ocr-needed/) back from the bucket and stores their text; no site is contacted
