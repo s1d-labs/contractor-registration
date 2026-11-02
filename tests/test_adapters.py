@@ -408,3 +408,13 @@ def test_maharashtra_civil_list_registration_numbers_and_dates():
     assert (rows[1]["registration_no"], rows[1]["registered_on"]) == ("6993", "5/8/2009")
     assert (rows[1]["valid_upto"], rows[1]["exempted_upto"], rows[1]["emd_exempted"]) == ("21/07/2014", "21/07/2014", "Y")
     assert rows[-1]["class"] == "I" and rows[-1]["registered_on"] == "27/10/2010"       # the class header on the second page
+
+
+def test_pmgsy_awarded_cost_repeated_per_package_is_marked():
+    works = [{"package": "CG1639", "sanction_cost_lakh": s, "awarded_cost_lakh": "5111.40"} for s in ("123.20", "144.34", "253.98")]
+    works += [{"package": "SK03", "sanction_cost_lakh": s, "awarded_cost_lakh": a} for s, a in (("201.19", "199.19"), ("195.17", "193.25"))]
+    works += [{"package": "BM0201", "sanction_cost_lakh": "1.01", "awarded_cost_lakh": "1.01"}]
+    marked = {(w["package"], w["awarded_is_package_total"]) for w in pmgsy.mark_package_totals(works)}
+    assert marked == {("CG1639", True), ("SK03", False), ("BM0201", False)}
+    gone = pmgsy.mark_package_totals([{"package": "X", "sanction_cost_lakh": "1"}])
+    assert "awarded_is_package_total" not in gone[0]
