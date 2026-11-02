@@ -65,6 +65,7 @@ PMGSY_STATES = {1: "Andaman And Nicobar (UT)", 2: "Andhra Pradesh", 3: "Arunacha
                 36: "Telangana", 37: "Ladakh (UT)"}   # the site's state codes (its State list)
 CPWD_PAGES = 55     # pages of 200 in CPWD's contractor list (9,736 on 2026-11-01)
 STATE_LISTS = ["gujarat-rnb-civil", "gujarat-rnb-electrical"]   # adapters/statepwd.py LISTS: state contractor registers (PDF)
+MH_LISTS = ["maharashtra-pwd-civil", "maharashtra-pwd-electrical"]   # on the S3WaaS CDN: answers from anywhere, no proxy
 # MES tenders are not queued: the gepnic family already holds them from defproc.gov.in under the same CPPP ids
 
 
@@ -190,6 +191,16 @@ PROJECTS = [
         "proxy": "IN", "max_workers": 1,
         "unit_label": "list", "record_label": "contractor",
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}} for sfx in ("", f"-{MONTH}") for name in STATE_LISTS],
+    },
+    {
+        # Maharashtra PWD publishes its registers in the RTI manual (no. 13), as PDFs on the S3WaaS CDN (8,966 civil, 632
+        # electrical rows; registrations mostly valid up to 2013-2017). Checked again every month in case a new list goes up.
+        "name": f"{FAMILY}-state-pwd-maharashtra",
+        "title": "Maharashtra PWD registered civil and electrical contractors (RTI manual no. 13)",
+        "task": "crawl", "target": "cdnbbsr.s3waas.gov.in", "env": _env("statepwd", "https://cdnbbsr.s3waas.gov.in", ocr=False),
+        "max_workers": 1,
+        "unit_label": "list", "record_label": "contractor",
+        "items": [{"key": f"{name}{sfx}", "payload": {"list": name}} for sfx in ("", f"-{MONTH}") for name in MH_LISTS],
     },
     {
         # the vendor directory is on IREPS behind a mobile-OTP sign-in; RDSO's own page lists the items with few sources

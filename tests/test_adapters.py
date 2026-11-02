@@ -390,3 +390,21 @@ def test_family_refetch_items_are_on_the_archive_project():
     refetch = [i for i in archive["items"] if i["payload"].get("kind") == "refetch"]
     assert refetch and all(i["payload"]["section"].startswith("tenders-archive/") for i in refetch)
     assert sum(len(i["payload"]["documents"]) for i in refetch) >= 2000
+
+
+def test_maharashtra_electrical_list_groups_rows_by_district_and_class():
+    rows = statepwd.parse_mh(statepwd.pdf_pages((PAGES / "maharashtra_pwd_electrical.pdf").read_bytes()))
+    assert [r["sr"] for r in rows] == [str(k) for k in range(1, 16)]
+    r = rows[1]
+    assert (r["district"], r["class"], r["contractor_number"], r["company"]) == ("Ahmadnagar", "A", "A-38", "M/s. A. B. Electricals")
+    assert r["address"] == "Maliwada, Near Veshi, Ahmadnagar.," and r["valid_upto"] == "6/9/2017" and r["emd_exempted"] == "N"
+    assert rows[-1]["class"] == "Unemployed Engineers(D class)" and rows[-1]["company"].startswith("M/s. Mawal Infrastructure")
+    assert len({statepwd.mh_row_id("maharashtra-pwd-electrical", r) for r in rows}) == 15
+
+
+def test_maharashtra_civil_list_registration_numbers_and_dates():
+    rows = statepwd.parse_mh(statepwd.pdf_pages((PAGES / "maharashtra_pwd_civil.pdf").read_bytes()))
+    assert len(rows) == 11 and rows[0]["district"] == "Ahmadnagar"
+    assert (rows[1]["registration_no"], rows[1]["registered_on"]) == ("6993", "5/8/2009")
+    assert (rows[1]["valid_upto"], rows[1]["exempted_upto"], rows[1]["emd_exempted"]) == ("21/07/2014", "21/07/2014", "Y")
+    assert rows[-1]["class"] == "I" and rows[-1]["registered_on"] == "27/10/2010"       # the class header on the second page
