@@ -106,7 +106,9 @@ PROJECTS = [
         # details and documents for every tender (~5 MB a tender, ~50 GB in all)
         "items": [{"key": f"{ep}-p{k}", "payload": {"kind": "tenders", "endpoint": ep, "page": k, "detail": True, "files": True,
                                                     "section": f"tenders-archive/{ep}", "expected": 50}}
-                  for ep, total in NHAI_ARCHIVE.items() for k in range(ceil(total / 50))],
+                  for ep, total in NHAI_ARCHIVE.items() for k in range(ceil(total / 50))]
+                 # documents the first pass stored empty (the site answered 200 with no body), fetched again
+                 + _queue("nhai_refetch.json.gz"),
     },
     {
         "name": f"{FAMILY}-nhai-pages",

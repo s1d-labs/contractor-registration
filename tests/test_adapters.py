@@ -364,3 +364,29 @@ def test_an_empty_answer_is_not_stored(tmp_path, monkeypatch):
     ctx = common.Ctx(common.LocalHub("p"), project="p")
     monkeypatch.setattr(ctx, "request", lambda method, url, **kw: FakeResponse(b"", {"Content-Type": "application/pdf"}))
     assert ctx.download("https://nhai.gov.in/nhai/sites/default/files/1_NIT.pdf", "tenders") is None
+
+
+def test_nhai_refetch_records_only_documents_that_now_load():
+    class Stub:
+        def __init__(self):
+            self.records = {}
+
+        def download(self, url, section, headers=None):
+            return {"path": f"pdf/{section}/x.pdf", "bytes": 10} if url.endswith("ok.pdf") else None
+
+        def record(self, rid, data):
+            self.records[rid] = data
+
+    ctx = Stub()
+    n = nhai.run(ctx, {"kind": "refetch", "section": "tenders-archive/tenderarchive",
+                       "documents": [{"tender": "1", "url": "https://nhai.gov.in/a/ok.pdf"}, {"tender": "2", "url": "https://nhai.gov.in/b/empty.pdf"}]})
+    [(rid, data)] = ctx.records.items()
+    assert n == 1 and rid == f"refetch-{common.sha1('https://nhai.gov.in/a/ok.pdf')[:16]}" and data["tender_record"] == "tender-1"
+
+
+def test_family_refetch_items_are_on_the_archive_project():
+    import family
+    archive = next(p for p in family.PROJECTS if p["name"].endswith("-nhai-tender-archive"))
+    refetch = [i for i in archive["items"] if i["payload"].get("kind") == "refetch"]
+    assert refetch and all(i["payload"]["section"].startswith("tenders-archive/") for i in refetch)
+    assert sum(len(i["payload"]["documents"]) for i in refetch) >= 2000

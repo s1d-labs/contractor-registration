@@ -144,7 +144,20 @@ def run_commontype(ctx, p):
     return n
 
 
-HANDLERS = {"tenders": run_tenders, "page": run_page, "commontype": run_commontype}
+def run_refetch(ctx, p):
+    """Documents stored empty in the first archive pass (the site answered 200 with no body; queues/nhai_refetch.json.gz):
+    fetched again, one record per document that now loads, pointing to its tender. The tender records are left as they are."""
+    n = 0
+    for d in p["documents"]:
+        stored = ctx.download(d["url"], p["section"], HEADERS)
+        if stored:
+            ctx.record(f"refetch-{sha1(d['url'])[:16]}", {"kind": "document_refetch", "tender_id": d["tender"], "url": d["url"],
+                                                         "tender_record": f"tender-{d['tender']}", "file": stored})
+            n += 1
+    return n
+
+
+HANDLERS = {"tenders": run_tenders, "page": run_page, "commontype": run_commontype, "refetch": run_refetch}
 
 
 def run(ctx, payload):
