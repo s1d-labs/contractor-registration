@@ -5,12 +5,16 @@
   maharashtra-pwd-civil   pwd.maharashtra.gov.in (files on the S3WaaS CDN)  PWD registered civil contractors per district and
                           class (RTI manual no. 13, uploaded March 2025; most registrations valid up to 2013-2017)
   maharashtra-pwd-electrical  the same, electrical contractors
+Document lists (DOC_PAGES): a page that lists registers as PDF downloads; every PDF is stored (scans under ocr-needed/, OCR later)
+and each row of the page becomes a record pointing to its file.
+  wb-phed-approved-vendors  wbphed.gov.in  West Bengal PHED approved vendors, civil and electro-mechanical items (scanned
+                            lists, 12-10-2026 back to 2024)
 The PDFs are printed from a spreadsheet: they have a text layer, one table row per contractor, and the cells wrap over several
 lines. The columns are found from where cells start on the page (the header's words are centred, the cells left-aligned), and
 every word goes to the row whose serial number is the nearest above it. rnb.gujarat.gov.in answers Indian addresses only; the
 Maharashtra files are on a CDN that answers from anywhere.
 
-Queue item payload: {"list": "gujarat-rnb-civil"}
+Queue item payload: {"list": "gujarat-rnb-civil"}, or {"doc_page": "wb-phed-approved-vendors"}
 One record per row: division, company, address, class, nature of firm, registration date, certificate valid up to, and the
 list's "as on" date. The PDF is stored as pdf/<list>/<list>-<as on>.pdf.
 """
@@ -30,6 +34,9 @@ LISTS = {             # list -> (state, PDF)
 SOURCES = {
     "Gujarat": "https://rnb.gujarat.gov.in/ (Contractors: R&B registered civil / electrical contractor list)",
     "Maharashtra": "https://pwd.maharashtra.gov.in/en/ (RTI manual no. 13: particulars of recipients of permits, list of contractors)",
+}
+DOC_PAGES = {         # page -> (state, URL of the page listing the PDFs)
+    "wb-phed-approved-vendors": ("West Bengal", "https://wbphed.gov.in/en/approved-vendor-list"),
 }
 DATE = re.compile(r"\b\d{2}-\d{2}-\d{4}\b")
 MH_DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
@@ -251,11 +258,54 @@ def row_id(name, row):
     return f"{name}-{sha1(row['company'].upper(), row['address'].upper(), row['division'], row['class'], row['registration_date'], row['valid_upto'])[:14]}"
 
 
+def parse_doc_table(page_html, base):
+    """[{sl, category, description, issue_date, url}] from a page's table of downloads (header row of <th>, one link per row).
+    Pure."""
+    import html as _html
+    from urllib.parse import quote, urljoin
+    tables = re.findall(r"<table.*?</table>", page_html or "", re.S)
+    if not tables:
+        return []
+    heads, out = [], []
+    for r in re.findall(r"<tr.*?</tr>", max(tables, key=len), re.S):
+        ths = re.findall(r"<th[^>]*>(.*?)</th>", r, re.S)
+        if ths:
+            heads = [clean(_html.unescape(re.sub(r"<[^>]+>", " ", h))).lower() for h in ths]
+            continue
+        cells = [clean(_html.unescape(re.sub(r"<[^>]+>", " ", c))) for c in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)]
+        link = re.search(r'href="([^"]+)"', r)
+        if not link or len(cells) < 4:
+            continue
+        row = dict(zip(heads, cells))
+        url = urljoin(base, quote(_html.unescape(link.group(1)), safe="/:()%.-_"))
+        out.append({"sl": row.get("sl no.", cells[0]), "category": row.get("category", cells[1]),
+                    "description": row.get("description", cells[2]), "issue_date": row.get("issue date", cells[3]), "url": url})
+    return out
+
+
+def run_doc_page(ctx, name):
+    state, url = DOC_PAGES[name]
+    r = ctx.request("GET", url, timeout=120)
+    if r is None:
+        return None
+    rows = parse_doc_table(r.content.decode("utf-8", "replace"), url)
+    if not rows:
+        ctx.hub.failure("parse", name, "no downloads found in the page's table (layout changed?)")
+        return None
+    for row in rows:
+        stored = ctx.download(row["url"], name)
+        ctx.record(f"{name}-{sha1(row['url'])[:14]}", {"kind": "state_register_document", "list": name, "state": state, **row,
+                                                       "file": stored, "source": url})
+    return len(rows)
+
+
 def mh_row_id(name, row):
     return f"{name}-{sha1(row['district'], row['class'], row['contractor_number'].upper(), row['company'].upper(), row['valid_upto'])[:14]}"
 
 
 def run(ctx, payload):
+    if payload.get("doc_page"):
+        return run_doc_page(ctx, payload["doc_page"])
     name = payload["list"]
     state, url = LISTS[name]
     r = ctx.request("GET", url, timeout=300)

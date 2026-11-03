@@ -208,6 +208,15 @@ PROJECTS = [
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}} for sfx in ("", f"-{MONTH}") for name in MH_LISTS],
     },
     {
+        # West Bengal PHED's approved vendor lists (civil and electro-mechanical items): scanned PDFs, stored for OCR later
+        "name": f"{FAMILY}-state-pwd-wb",
+        "title": "West Bengal PHED approved vendors (civil and electro-mechanical items), scanned lists",
+        "task": "crawl", "target": "wbphed.gov.in", "env": _env("statepwd", "https://wbphed.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "page", "record_label": "list",
+        "items": [{"key": f"wb-phed-approved-vendors{sfx}", "payload": {"doc_page": "wb-phed-approved-vendors"}} for sfx in ("", f"-{MONTH}")],
+    },
+    {
         # the vendor directory is on IREPS behind a mobile-OTP sign-in; RDSO's own page lists the items with few sources
         "name": f"{FAMILY}-rdso-items",
         "title": "RDSO items with fewer than three / five approved sources, or no Indian source",
