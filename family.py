@@ -160,7 +160,10 @@ PROJECTS = [
         "unit_label": "state x status", "record_label": "contractor",
         # once, then every month (the master changes slowly)
         "items": [{"key": f"{code:02d}-{status}{sfx}", "payload": {"state": code, "state_name": name, "status": status}}
-                  for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items() for status in "ABEI"],
+                  for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items() for status in "ABEI"]
+                 # the dashboard's performance score per contractor (construction, mobilisation, quality; 7,008 on 3 Nov 2026)
+                 + [{"key": f"kpi-{code:02d}{sfx}", "payload": {"report": "kpi", "state": code, "state_name": name}}
+                    for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items()],
     },
     {
         # erp.cpwd.gov.in (CPWD's new portal; cpwd.gov.in does not answer) answers Indian addresses only: through the Mumbai proxies
