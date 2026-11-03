@@ -75,7 +75,7 @@ OCR = False
 
 # The hub owner's pause on Indian proxies and Indian servers (2 Nov 2026, ~24 hours, while 40 more proxies are added): projects
 # with proxy="IN" are taken out of the pool (set_pool(pool=False)); their queues are kept. Set back to False, then run setup.
-HOLD_PROXIED = True
+HOLD_PROXIED = False
 
 
 def _env(adapter, site, ocr=True):
@@ -144,6 +144,7 @@ PROJECTS = [
         "title": "MES approved products, approved consultants and works policy letters",
         "task": "crawl", "target": "mes.gov.in", "env": _env("mes", "https://mes.gov.in"),
         "proxy": "IN", "max_workers": 2,
+        "proxy_only": ["91.124.42."],   # mes.gov.in refuses the 191.219.x and 95.134.119.x proxies (2-3 Nov 2026)
         "unit_label": "page", "record_label": "row",
         "items": [{"key": f"{path.replace('/', '-')}-p{k}", "payload": {"path": path, "page": k, "files": True}}
                   for path, pages in MES_WORKS.items() for k in range(pages)]
