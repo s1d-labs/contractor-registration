@@ -2,12 +2,13 @@
 
 **Status:** 💤 PARKED for vendor names: **the IREPS sign-in is on hold until trideep can do it (decided 3 Nov 2026)**. The
 directory needs a human sign-in (mobile number, image code, OTP); the tool for that pull is ready on `main`. RDSO's open item
-lists (133 items) are back in the pool since the proxies returned on 3 Nov.
-**Updated:** 2 Nov 2026 10:32 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@685c82a` (`main`);
-`tools/ireps_vendors.py` on `proxy-check-nhai-refetch` @ `5d02ff5` (PR #7, open)
-**Projects:** `contractor-registration-rdso-items` (adapter `rdso`, target `rdso.indianrailways.gov.in`, `proxy="IN"`, 1 worker)
+lists (133 items) still fail in the pool: pool runs get connection errors through every proxy, while the same proxy answers from a
+team box. PR #9 also sends the project to the hub's India servers.
+**Updated:** 4 Nov 2026 09:55 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`);
+`geo="IN"` on branch `c02-uttarakhand-odisha` (PR #9, open)
+**Projects:** `contractor-registration-rdso-items` (adapter `rdso`, target `rdso.indianrailways.gov.in`, `proxy="IN"`, + `geo="IN"` after PR #9, 1 worker)
 **Data:** `select … from public.records where project = 'contractor-registration-rdso-items'` (empty so far)
-**Previous report:** first report
+**Previous report:** 2 Nov 2026 10:32 CET
 
 ---
 
@@ -21,20 +22,23 @@ lists (133 items) are back in the pool since the proxies returned on 3 Nov.
 ## 1. TL;DR
 - **The vendor directory is on IREPS UVAM**, open to guests who sign in with an Indian mobile number, an image verification code and
   an OTP. No account is needed, but a person must do each sign-in.
-- **`tools/ireps_vendors.py login`** (PR #7) does that sign-in with the person at the keyboard, keeps the session on the box (private
+- **`tools/ireps_vendors.py login`** (on `main`) does that sign-in with the person at the keyboard, keeps the session on the box (private
   file) and saves the first directory pages. The export can be written once those pages have been seen.
 - **RDSO's own lists:** 25 items with fewer than 3 approved sources, 107 with fewer than 5, and 1 with no Indian source (as on 03.06.2024).
-  Tested end to end: 133 records. In the pool both items failed on proxies `95.134.119.238` / `.254`, which answer RDSO again today. The hub retries them.
-- **Next:** someone with a phone runs the sign-in once (about 2 minutes); see [3](#3-pick-up-here).
+  Tested end to end: 133 records (again on 4 Nov, through `91.124.42.191` from the box). In the pool, 4 Nov 08:58–09:37 CET, runs
+  through all 10 proxies gave connection errors and gave the proxy back without claiming (the items keep their tries).
+- **Next:** merge PR #9 (India servers as a second route); the IREPS sign-in stays on hold.
 
 ## 2. Where things stand
 
 | Project | State | Items done / total | Failed · pending · running | Records stored | Pace (24 h) | ETA |
 |---|---|---:|---|---:|---:|---|
-| `-rdso-items` | ⚠️ STALLED | 0 / 2 | 2 · 0 · 0 | 0 | 0 | next retry; 133 records expected |
+| `-rdso-items` | ⚠️ STALLED | 0 / 2 | 0 · 2 · 0 | 0 | 0 | after PR #9 (India servers); 133 records expected |
 | IREPS vendor directory | 💤 PARKED | — | — | — | — | **on hold**: after trideep's sign-in (not scheduled) |
 
-- Runs: 2, both finished with 0 records (2 Nov 09:07 and 09:49 CET), with 4 and 2 connection errors. The items have 3 tries each of 40.
+- Runs on 2 Nov (12, through `95.134.119.x`, `91.124.42.193`, `191.219.20.x`) finished with 0 records ("site did not answer"); the
+  items have 15 tries each of 40. Since 4 Nov a run checks the site first: 2 runs, 32 connection errors, 16 proxies given back.
+- The same item, through the same proxy (`91.124.42.191`), passes scrape-check from the team box (09:22 CET), so the site answers.
 
 ## 3. Pick up here
 - **Repo:** `~/contractor-registration` · **Try the item lists:** `myproxy run ~/.venvs/cr/bin/python crawl.py --local rdso '{"section": "0,5,6634"}'`
@@ -101,7 +105,7 @@ where project = 'contractor-registration-rdso-items' order by (data->>'vendor_co
 | # | Issue | Size | Impact / what to do |
 |---|---|---:|---|
 | 1 | **Vendor names behind the IREPS sign-in** (at the source) | the whole directory | Manual pull ([3](#3-pick-up-here)). |
-| 2 | Item lists not stored yet (missed by us, for now) | 133 items | The hub retries; PR #7 gives back refused proxies. |
+| 2 | **Item lists not stored yet** (missed by us, for now) | 133 items | Pool runs can't reach RDSO through the proxies; PR #9 adds the India servers. If those fail too, ask Sarthak to look at the runners' proxy path. |
 | 3 | Lists are from 03.06.2024 (at the source) | 3 PDFs | Checked monthly for new files. |
 
 ## 10. Risks and open decisions
@@ -110,6 +114,7 @@ where project = 'contractor-registration-rdso-items' order by (data->>'vendor_co
 - **To decide (trideep):** whether the IREPS terms allow storing the directory, and who signs in each month.
 
 ## 11. Next steps
+**To do now:** merge PR #9 and run setup; check `-rdso-items` an hour later.
 **On hold (trideep):** 1. Run `tools/ireps_vendors.py login` once with the phone. 2. Then Claude maps the pages and writes `export`.
-**Later:** 4. Join vendor names to RDSO items and to the other registers.
+**Later:** 3. Join vendor names to RDSO items and to the other registers.
 **Housekeeping:** delete `~/ireps-export` after uploading it to the bucket.

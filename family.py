@@ -241,11 +241,46 @@ PROJECTS = [
                   for sfx in ("", f"-{MONTH}") for name in ("odisha-works-civil", "odisha-works-electrical")],
     },
     {
+        # PWD (R&B) Tripura: enlisted contractors per class on one page (1,539 on 4 Nov 2026) and each one's certificate PDF
+        "name": f"{FAMILY}-state-pwd-tripura",
+        "title": "PWD (R&B) Tripura enlisted contractors (classes I to V, electrical) with enlistment certificates",
+        "task": "crawl", "target": "pwd.tripura.gov.in", "env": _env("statepwd", "https://pwd.tripura.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "page", "record_label": "contractor",
+        "items": [{"key": f"tripura-pwd-enlisted{sfx}", "payload": {"tables": "tripura-pwd-enlisted", "expected": 1539}}
+                  for sfx in ("", f"-{MONTH}")],
+    },
+    {
+        # PWD Arunachal Pradesh: valid enlisted civil contractors (classes IAA / IA / I, II, III as on 30-09-2026: 1,276) and the
+        # cancellation / extension orders and older lists the page links to. arunachalpwd.org answers from anywhere.
+        "name": f"{FAMILY}-state-pwd-arunachal",
+        "title": "PWD Arunachal Pradesh enlisted contractors (classes I to III) and cancellation orders",
+        "task": "crawl", "target": "arunachalpwd.org", "env": _env("statepwd", "https://arunachalpwd.org", ocr=False),
+        "max_workers": 1,
+        "unit_label": "list", "record_label": "contractor",
+        "items": [{"key": f"{name}{sfx}", "payload": {"columns": name}}
+                  for sfx in ("", f"-{MONTH}") for name in ("arunachal-pwd-class-i", "arunachal-pwd-class-ii", "arunachal-pwd-class-iii")]
+                 + [{"key": f"arunachal-pwd-documents{sfx}", "payload": {"links": "arunachal-pwd-documents"}} for sfx in ("", f"-{MONTH}")],
+    },
+    {
+        # PWD (B&R) Haryana: the published list of Class-1 enlisted contractors (1.4.2014 to 16.12.2020, 302 firms). The
+        # department's "search approved contractor" form only answers a full name, so it is not a list.
+        "name": f"{FAMILY}-state-pwd-haryana",
+        "title": "PWD (B&R) Haryana Class-1 enlisted contractors (2014-2020 list)",
+        "task": "crawl", "target": "haryanapwd.gov.in", "env": _env("statepwd", "https://haryanapwd.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "list", "record_label": "contractor",
+        "items": [{"key": f"haryana-pwd-class1{sfx}", "payload": {"numbered": "haryana-pwd-class1", "expected": 302}}
+                  for sfx in ("", f"-{MONTH}")],
+    },
+    {
         # the vendor directory is on IREPS behind a mobile-OTP sign-in; RDSO's own page lists the items with few sources
         "name": f"{FAMILY}-rdso-items",
         "title": "RDSO items with fewer than three / five approved sources, or no Indian source",
         "task": "crawl", "target": "rdso.indianrailways.gov.in", "env": _env("rdso", "https://rdso.indianrailways.gov.in", ocr=False),
-        "proxy": "IN", "max_workers": 1,
+        # 4 Nov 2026: pool runs got connection errors through every proxy while the same proxy answered from a team box;
+        # the hub's India servers take the work too
+        "proxy": "IN", "geo": "IN", "max_workers": 1,
         "unit_label": "page", "record_label": "item",
         "items": [{"key": f"few-sources{sfx}", "payload": {"section": "0,5,6634"}} for sfx in ("", f"-{MONTH}")],
     },

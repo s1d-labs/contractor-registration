@@ -1,4 +1,5 @@
-"""State PWD / R&B departments: contractor registers the states publish as PDF lists. One queue item per list.
+"""State PWD / R&B departments: contractor registers the states publish (PDF lists, HTML tables, online registration reports).
+One queue item per list.
 
   gujarat-rnb-civil       rnb.gujarat.gov.in  R&B registered civil contractors, classes AA, A, B, C, D, E-1, E-2 (8,113 on 14-09-2026)
   gujarat-rnb-electrical  rnb.gujarat.gov.in  R&B registered electrical contractors, classes A and AA
@@ -21,11 +22,23 @@ Online registers (HTML tables):
                           The server needs TLS legacy renegotiation (common.LEGACY_TLS).
   odisha-works-<civil|electrical>  works.odisha.gov.in  Works Department contractor ledger (Super / Special / A / B class civil,
                           MV / HT electrical): name and address, a Drupal table of 20 rows a page, read per class.
+  tripura-pwd-enlisted    pwd.tripura.gov.in  PWD (R&B) Tripura enlisted contractors, one table per class (I to IV, electrical IE,
+                          services SE): enlistment no, name, father's / partner's name, address, validity, tender limit; each
+                          row's enlistment certificate (PDF) is stored too.
+Column PDF lists (COLUMN_LISTS): one table row per firm, columns found from the header words on each page.
+  arunachal-pwd-class-i|ii|iii  arunachalpwd.org  PWD Arunachal Pradesh valid enlisted / re-validated civil contractors, classes
+                          IAA / IA / I, II and III, as on 30-09-2026 (the page lists newer files under new dated folders)
+Numbered PDF lists (NUMBERED): "1. Firm, address" entries, one per contractor.
+  haryana-pwd-class1      haryanapwd.gov.in  PWD (B&R) Haryana contractors enlisted in Class-1, 1.4.2014 to 16.12.2020
+Linked documents (LINK_PAGES): the contractor-related PDFs a page links to (lists, cancellation / extension orders, memoranda,
+corrigenda), stored for reading later (most are scans).
+  arunachal-pwd-documents arunachalpwd.org/contractors.php
 
-Queue item payload: {"list": "gujarat-rnb-civil"}, {"doc_page": "wb-phed-approved-vendors"}, {"uk_class": "A"} or
-{"ledger": "odisha-works-civil"}
-One record per row: division, company, address, class, nature of firm, registration date, certificate valid up to, and the
-list's "as on" date. The PDF is stored as pdf/<list>/<list>-<as on>.pdf.
+Queue item payload: {"list": "gujarat-rnb-civil"}, {"doc_page": "wb-phed-approved-vendors"}, {"uk_class": "A"},
+{"ledger": "odisha-works-civil"}, {"tables": "tripura-pwd-enlisted"}, {"columns": "arunachal-pwd-class-i"},
+{"numbered": "haryana-pwd-class1"} or {"links": "arunachal-pwd-documents"}.
+PDF lists (Gujarat, Maharashtra): one record per row: division, company, address, class, nature of firm, registration date,
+certificate valid up to, and the list's "as on" date. The PDF is stored as pdf/<list>/<list>-<as on>.pdf.
 """
 import ctypes
 import re
@@ -55,6 +68,21 @@ LEDGERS = {           # ledger -> (state, page, filter field, {value: class})
                            {"1": "Super Class", "2": "Special Class", "3": "A Class", "4": "B Class"}),
     "odisha-works-electrical": ("Odisha", "https://works.odisha.gov.in/en/more/contractor-ledger/electrical",
                                 "field_electrical_contractor_value", {"1": "MV", "2": "HT"}),
+}
+TABLE_PAGES = {       # page -> (state, URL): accordion sections of enlisted-contractor tables
+    "tripura-pwd-enlisted": ("Tripura", "https://pwd.tripura.gov.in/enlistment-of-contractors-2/"),
+}
+COLUMN_LISTS = {      # list -> (state, PDF): tables with Sl / Name of firm / Address / Enlistment No. & Date / Validity / Remarks
+    "arunachal-pwd-class-i": ("Arunachal Pradesh", "https://arunachalpwd.org/pdf/06102026/Class-IAA-I-A_I-ason-30092026.pdf"),
+    "arunachal-pwd-class-ii": ("Arunachal Pradesh", "https://arunachalpwd.org/pdf/06102026/Class-II-ason-30092026.pdf"),
+    "arunachal-pwd-class-iii": ("Arunachal Pradesh", "https://arunachalpwd.org/pdf/06102026/Class-III-ason-30092026.pdf"),
+}
+LINK_PAGES = {        # page -> (state, URL): every contractor-related PDF linked from the page is stored, one record per link
+    "arunachal-pwd-documents": ("Arunachal Pradesh", "https://arunachalpwd.org/contractors.php"),
+}
+NUMBERED = {          # list -> (state, PDF, title)
+    "haryana-pwd-class1": ("Haryana", "https://haryanapwd.gov.in/home/docs/Contractor%20List.pdf",
+                           "List of enlisted contractors as Class-1 category for the period from 1.4.2014 to 16.12.2020"),
 }
 DATE = re.compile(r"\b\d{2}-\d{2}-\d{4}\b")
 MH_DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
@@ -407,6 +435,201 @@ def run_ledger(ctx, name):
     return n
 
 
+TRIPURA_FIELDS = ["enlistment_no", "contractor", "father_or_partner", "address", "validity", "qualified_upto"]
+
+
+def parse_accordion_tables(page_html):
+    """Rows of every table on an Elementor accordion page (PWD Tripura), each with the title of the section it sits in.
+    Validity "YYYY-MM-DD to YYYY-MM-DD" (or one date: valid up to) splits into valid_from / valid_upto; the row's link (the
+    enlistment certificate) is kept. Pure."""
+    import html as _html
+    page_html = page_html or ""
+    titles = [(m.start(), clean(_html.unescape(re.sub(r"<[^>]+>", " ", m.group(1)))).replace("\u200b", "").strip())
+              for m in re.finditer(r'class="e-n-accordion-item-title-text">(.*?)</div>', page_html, re.S)]
+    out = []
+    for m in re.finditer(r"<table.*?</table>", page_html, re.S):
+        section = next((t for at, t in reversed(titles) if at < m.start()), "")
+        for r in re.findall(r"<tr.*?</tr>", m.group(0), re.S):
+            cells = [re.sub(r"<span.*?</span>\s*</span>", "", c, flags=re.S) for c in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)]
+            if len(cells) < len(TRIPURA_FIELDS):
+                continue
+            row = dict(zip(TRIPURA_FIELDS, (clean(_html.unescape(re.sub(r"<[^>]+>", " ", c))) for c in cells)))
+            dates = re.findall(r"\d{4}-\d{2}-\d{2}", row["validity"])
+            row["valid_from"], row["valid_upto"] = (dates[0], dates[-1]) if len(dates) > 1 else ("", dates[0] if dates else "")
+            link = re.search(r'href="([^"]+\.pdf)"', r, re.I)
+            row["certificate_url"] = _html.unescape(link.group(1)) if link else ""
+            row["section"] = section
+            out.append(row)
+    return out
+
+
+def run_tables(ctx, name):
+    state, url = TABLE_PAGES[name]
+    r = ctx.request("GET", url, timeout=180)
+    if r is None:
+        return None
+    rows = parse_accordion_tables(r.content.decode("utf-8", "replace"))
+    if not rows:
+        ctx.hub.failure("parse", name, "no enlisted contractors found in the page's tables (layout changed?)")
+        return None
+    for row in rows:
+        stored = ctx.download(row["certificate_url"], f"{name}-certificates") if row["certificate_url"] else None
+        ctx.record(f"{name}-{sha1(row['section'], row['enlistment_no'], row['contractor'].upper())[:14]}",
+                   {"kind": "state_contractor", "list": name, "state": state, **row, "certificate": stored, "url": url,
+                    "source": f"{url} (PWD (R&B), Government of {state}: Enlistment of Contractors)"})
+    return len(rows)
+
+
+def parse_numbered(text):
+    """[{sr, entry}] from a list whose entries are "12. Firm, address" over one or more lines. Pure."""
+    text = (text or "").replace("\r", "\n").replace("\ufffe", "-").replace("\x02", "-")
+    out, expect = [], 1
+    for m in re.finditer(r"(?m)^\s*(\d{1,5})\s*\.\s*", text):
+        if int(m.group(1)) == expect:
+            out.append([expect, m.end()])
+            expect += 1
+    rows = []
+    for i, (n, start) in enumerate(out):
+        end = text.rfind("\n", start, out[i + 1][1]) if i + 1 < len(out) else len(text)
+        rows.append({"sr": str(n), "entry": clean(text[start:end].replace("\n", " "))})
+    return rows
+
+
+COLUMN_HEADS = ("Name", "Address", "Enlistment", "Validity", "Remarks")
+
+
+def parse_columns(pages):
+    """(meta, rows) from a list laid out as Sl | Name of firm | Address | Enlistment No. & Date | Validity | Remarks (PWD Arunachal
+    Pradesh). Each page repeats the header: its words give the column edges (cells start a little left of their heading). A
+    row starts at a serial number in the first column; lines before the first one on a page continue the previous row.
+    "CLASS - IAA" lines inside the table set the class of the rows below. Pure."""
+    meta, rows, cur, cls = {"as_on": "", "title": ""}, [], None, ""
+    for pi, words in enumerate(pages):
+        head = {}
+        for w in words:
+            if w[3] in COLUMN_HEADS and w[3] not in head:
+                head[w[3]] = w
+        if len(head) < len(COLUMN_HEADS):
+            continue
+        top = head["Remarks"][1]
+        bottom = min([w[1] for w in words if top - 16 <= w[1] <= top + 2 and w[0] < head["Remarks"][0] + 40] + [top])
+        edges = [head["Name"][0] - 30, head["Address"][0] - 10, head["Enlistment"][0] - 8, head["Validity"][0] - 18, head["Remarks"][0] - 6]
+        lines = {}
+        for w in words:
+            if w[1] < bottom - 1:
+                lines.setdefault(round(w[1]), []).append(w)
+        title = join_words([w for w in words if w[1] > top + 5 and "Page" not in w[3]])
+        m = re.search(r"(?:as\s+on)\s+(\d{2}/\d{2}/\d{4})", title, re.I)
+        if m and not meta["as_on"]:
+            meta["as_on"], meta["title"] = m.group(1), re.sub(r"Page \d+ of \d+", "", title).strip()
+        for y in sorted(lines, reverse=True):
+            line = sorted(lines[y])
+            text = join_words(line)
+            if [w[3] for w in line] == [str(k) for k in range(1, 7)] or re.fullmatch(r"Page \d+ of \d+", text):
+                continue
+            c = re.fullmatch(r"CLASS\s*-\s*([A-Z/]+)\s*(?:\(.*\))?", text, re.I)
+            if c:
+                cls = c.group(1).upper()
+                continue
+            if re.match(r"NB\s*:", text):                    # the closing note and signature on the last page
+                break
+            first = line[0]
+            if first[0] < edges[0] and first[3].rstrip(".").isdigit():
+                cur = {"sr": first[3].rstrip("."), "class": cls, "cols": [[] for _ in range(5)]}
+                rows.append(cur)
+                line = line[1:]
+            if cur is None:
+                continue
+            for w in line:
+                k = sum(1 for e in edges if w[0] >= e) - 1
+                cur["cols"][max(0, k)].append((w[0], w[1] - 10000 * pi, w[2], w[3]))   # keeps page order in join_words
+    m = re.search(r"CLASS\s*-?\s*([IVX/A]+)\s*\(", meta["title"], re.I)
+    title_cls = m.group(1).upper() if m and "/" not in m.group(1) else ""
+    out = []
+    for r in rows:
+        name, address, enl, valid, remarks = (join_words(ws) for ws in r["cols"])
+        parts = re.split(r"\b(?:Dated|Dtd|Dt)\b[.:]?", enl, maxsplit=1, flags=re.I)
+        no, dated = parts[0], parts[1] if len(parts) > 1 else ""
+        out.append({"sr": r["sr"], "class": r["class"] or title_cls, "company": name, "address": address, "enlistment_no": clean(no),
+                    "enlistment_date": clean(dated).rstrip("."), "valid_upto": valid, "remarks": remarks})
+    return meta, out
+
+
+def run_columns(ctx, name):
+    state, url = COLUMN_LISTS[name]
+    r = ctx.request("GET", url, timeout=300)
+    if r is None or r.content[:5] != b"%PDF-":
+        return None
+    meta, rows = parse_columns(pdf_pages(r.content))
+    if not rows:
+        ctx.hub.failure("parse", name, "no rows found in the PDF (layout changed?)")
+        return None
+    stored = ctx.hub.upload_many([(f"pdf/{name}/{url.rsplit('/', 1)[-1]}", r.content, "application/pdf")])[0]
+    for row in rows:
+        ctx.record(f"{name}-{sha1(row['class'], row['enlistment_no'].upper(), row['company'].upper())[:14]}",
+                   {"kind": "state_contractor", "list": name, "state": state, **row, "list_as_on": meta["as_on"],
+                    "list_title": meta["title"], "pdf_path": stored.get("path"), "url": url,
+                    "source": f"https://arunachalpwd.org/contractors.php ({meta['title'] or name})"})
+    return len(rows)
+
+
+DOC_TYPES = (("cancellation", r"cancel"), ("extension", r"extend|extension"), ("corrigendum", r"corrigendum"),
+             ("fake_enlistment", r"fake"), ("memorandum", r"memorandum"), ("list", r"list of|registered contractor"),
+             ("rules", r"rules?\b|circular|certificate"))
+
+
+def parse_pdf_links(page_html, base):
+    """[{title, url, doc_type}] of the PDF links on a page whose text is about contractors (enlistment, registration, lists,
+    cancellations), first occurrence of each URL. Pure."""
+    import html as _html
+    from urllib.parse import quote, urljoin
+    out, seen = [], set()
+    for href, text in re.findall(r'<a[^>]+href="([^"]+\.pdf)"[^>]*>(.*?)</a>', page_html or "", re.S | re.I):
+        title = clean(_html.unescape(re.sub(r"<[^>]+>", " ", text)))
+        url = urljoin(base, quote(_html.unescape(href), safe="/:()%.-_'"))
+        if url in seen or not re.search(r"contract|enlist|regist|firm", title, re.I):
+            continue
+        seen.add(url)
+        kind = next((k for k, rx in DOC_TYPES if re.search(rx, title, re.I)), "other")
+        out.append({"title": title, "url": url, "doc_type": kind})
+    return out
+
+
+def run_links(ctx, name):
+    state, url = LINK_PAGES[name]
+    r = ctx.request("GET", url, timeout=120)
+    if r is None:
+        return None
+    links = parse_pdf_links(r.content.decode("utf-8", "replace"), url)
+    if not links:
+        ctx.hub.failure("parse", name, "no contractor documents linked from the page (layout changed?)")
+        return None
+    for link in links:
+        stored = ctx.download(link["url"], name)
+        ctx.record(f"{name}-{sha1(link['url'])[:14]}", {"kind": "state_register_document", "list": name, "state": state, **link,
+                                                        "file": stored, "source": url})
+    return len(links)
+
+
+def run_numbered(ctx, name):
+    state, url, title = NUMBERED[name]
+    r = ctx.request("GET", url, timeout=180)
+    if r is None or r.content[:5] != b"%PDF-":
+        return None
+    import pypdfium2 as pdfium
+    doc = pdfium.PdfDocument(r.content)
+    rows = parse_numbered("\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc))))
+    if not rows:
+        ctx.hub.failure("parse", name, "no numbered entries found in the PDF (scan, or layout changed?)")
+        return None
+    stored = ctx.hub.upload_many([(f"pdf/{name}/{name}.pdf", r.content, "application/pdf")])[0]
+    for row in rows:
+        ctx.record(f"{name}-{sha1(row['entry'].upper())[:14]}", {"kind": "state_contractor", "list": name, "state": state, **row,
+                                                                 "list_title": title, "pdf_path": stored.get("path"), "url": url,
+                                                                 "source": f"{url} ({title})"})
+    return len(rows)
+
+
 def mh_row_id(name, row):
     return f"{name}-{sha1(row['district'], row['class'], row['contractor_number'].upper(), row['company'].upper(), row['valid_upto'])[:14]}"
 
@@ -418,6 +641,14 @@ def run(ctx, payload):
         return run_uk(ctx, payload["uk_class"])
     if payload.get("ledger"):
         return run_ledger(ctx, payload["ledger"])
+    if payload.get("tables"):
+        return run_tables(ctx, payload["tables"])
+    if payload.get("links"):
+        return run_links(ctx, payload["links"])
+    if payload.get("columns"):
+        return run_columns(ctx, payload["columns"])
+    if payload.get("numbered"):
+        return run_numbered(ctx, payload["numbered"])
     name = payload["list"]
     state, url = LISTS[name]
     r = ctx.request("GET", url, timeout=300)

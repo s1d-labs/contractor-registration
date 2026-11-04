@@ -2,7 +2,29 @@
 
 Internal, consolidated notes for the whole family: sites, reachability, logins, decisions. **The reports to publish are one per
 planned source:** [C01 CPWD](report-C01.md) · [C02 State PWD](report-C02.md) · [C03 MES](report-C03.md) · [C04 RDSO / IREPS](report-C04.md)
-· [C05 NHAI / MoRTH](report-C05.md) · [C06 PMGSY](report-C06.md) (2 Nov 2026). The snapshot below is from 1 Nov 2026; the reports are newer.
+· [C05 NHAI / MoRTH](report-C05.md) · [C06 PMGSY](report-C06.md) (updated 4 Nov 2026). The snapshot below is from 1 Nov 2026; the
+reports are newer.
+
+**4 Nov 2026 (latest):**
+- PR #8 squash-merged (`51547a2`) and setup run: proxied projects back in the pool, MES on `proxy_only=["91.124.42."]`.
+- **MES complete** (38/38, 290 rows). **PMGSY KPI stored:** 7,087 contractor scores with full PAN (6,978 match the master by state +
+  masked PAN). **WB PHED:** 26 scanned lists stored (OCR later). **NHAI re-fetch:** all 1,551 links still empty at NHAI (gap at source).
+- **C02, five more states (PR #9, open):** Uttarakhand online register (36,400 applications, 33,858 granted, PAN in the registration
+  number; site needs TLS legacy renegotiation, handled in `common.legacy_tls`), Tripura (1,539 + certificate PDFs with text layer),
+  Arunachal (1,276 + 48 documents incl. 21 cancellation orders; answers without a proxy), Haryana Class-1 list (302, 2014–2020),
+  Odisha Works ledger (76).
+- **C02 dead ends (4 Nov, through proxy 91.124.42.191):** login only: Kerala (`contractors.kerala.gov.in`), Himachal
+  (`online.hppwd.gov.in/enlistment`), Rajasthan (SSO). Karnataka `/crp/` 502. Haryana's search form needs a full name. TN Highways
+  answers but has no list. No answer: UP, Bihar (rcd), MP, Punjab, AP, Telangana, WB PWD, Chhattisgarh, Jharkhand, Assam, J&K, Manipur,
+  Nagaland, Sikkim, Puducherry, `pwdharyana.gov.in`, `pwd.arunachal.gov.in`. Mizoram 403.
+- **RDSO items:** pool runs get connection errors through all 10 proxies (4 Nov 08:58–09:37 CET), while the same proxy works from the
+  box (scrape-check PASS, 133). PR #9 adds `geo="IN"`. If the India servers fail too, ask Sarthak about the runners' proxy path.
+- **data.gov.in (OGD) catalogue, checked with trideep's key** (`/lists?filters[title]=…`, 27 keywords; the API answers through a proxy
+  in ~1 s with curl, while Python requests hung): **no contractor, vendor or empanelment register.** Only Rajya Sabha answer tables
+  (aggregates), e.g. "action taken against defaulting contractors/concessionaires" after bridge collapses (`bbc56ef3-…`), JJM
+  complaints against contractors (`eaf326ff-…`), contract-labour licences to contractors (`7d6f9a62-…`). Not worth a project. The key
+  stays in `~/.config/s1d/ogd.env` only.
+- IREPS UVAM pull **on hold** (trideep, 3 Nov). Commits and PRs are written as trideep's (no Claude trailer) from 4 Nov.
 
 Since 1 Nov: PR #6 merged and seeded (PMGSY works 207,187 records, Gujarat 9,421); MES answers only the `91.124.42.x` proxies
 (PR #7 makes runs give back refused proxies); Maharashtra PWD lists parsed (PR #7); Rajasthan PWD has no public list (SSO login),
@@ -151,7 +173,7 @@ account owner's go-ahead and should be checked against the site's terms first. O
 | MES e-governance: `mes.bisag-n.gov.in/` (BMP, ECB, EMB, WBPMP, WEA, DWAP), `hrmciv.mes.gov.in` | department login | MES staff | internal budgets, measurement books | Out (officials) |
 | PMGSY OMMAS (officials): `pmgsygov.dord.gov.in` | department login | PIU / SRRDA / NRIDA staff | works ↔ contractor link, payments | Out (officials) |
 | Gujarat R&B registration: `rnbcontractor.com` | contractor account | firms registering with R&B | own registration | No: the register is already in the PDFs |
-| **data.gov.in (OGD) API** | free API key (sign-up with e-mail) | anyone | PMGSY / road datasets published there (not checked which); no key on this box (`~/.config/s1d/` has no `ogd.env`) | Maybe: check the catalogue before getting a key |
+| **data.gov.in (OGD) API** | free API key (sign-up with e-mail) | anyone | checked 4 Nov with trideep's key (in `~/.config/s1d/ogd.env`): no contractor registers, only aggregate tables | No |
 | NHAI complaints: `complaint.nhai.org/complaintsregistration/loginpage.aspx` | citizen login | anyone | own complaints | No |
 
 **Captchas:** none of C01–C06's open data sits behind one. The planned-sources page marks NHAI as "captcha wall", but the

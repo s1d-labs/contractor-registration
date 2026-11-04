@@ -1,13 +1,16 @@
-# C02: State PWD / R&B registered contractors (Gujarat, Maharashtra; other states)
+# C02: State PWD / R&B / PHED registered contractors (8 states)
 
-**Status:** ⏳ RUNNING. Gujarat is done (**9,421** contractors). Maharashtra is built and waiting for PR #7 (9,598 rows, mostly old
-registrations). Rajasthan and Karnataka have no open list. The other states haven't been looked at.
-**Updated:** 2 Nov 2026 10:32 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@685c82a` (`main`);
-Maharashtra on branch `proxy-check-nhai-refetch` @ `5d02ff5` (PR #7, open)
-**Projects:** `contractor-registration-state-pwd` (adapter `statepwd`, target `rnb.gujarat.gov.in`, `proxy="IN"`, 1 worker);
-`contractor-registration-state-pwd-maharashtra` (same adapter, target `cdnbbsr.s3waas.gov.in`, no proxy; after PR #7)
-**Data:** `select … from public.records where project = 'contractor-registration-state-pwd'` · bucket `contractor-registration-state-pwd/pdf/<list>/`
-**Previous report:** first report
+**Status:** ⏳ RUNNING. **Gujarat** (9,421 contractors), **Maharashtra** (9,504) and **West Bengal PHED** (26 scanned vendor lists) are stored.
+Five more states are built and tested, and wait for PR #9: **Uttarakhand** (36,400 applications, 33,858 registered, firm PAN on each),
+**Tripura** (1,539), **Arunachal Pradesh** (1,276 plus 48 orders), **Haryana** (302) and **Odisha** (76). About 20 other states publish
+no list, keep it behind a login, or don't answer from India.
+**Updated:** 4 Nov 2026 09:50 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`);
+new states on branch `c02-uttarakhand-odisha` (PR #9, open)
+**Projects:** `contractor-registration-state-pwd` (Gujarat), `-state-pwd-maharashtra`, `-state-pwd-wb`; after PR #9: `-state-pwd-uttarakhand`,
+`-state-pwd-tripura`, `-state-pwd-arunachal`, `-state-pwd-haryana`, `-state-pwd-odisha`. All use adapter `statepwd`, 1 worker each;
+`proxy="IN"` except Maharashtra (CDN) and Arunachal, which answer from anywhere.
+**Data:** `select … from public.records where project like 'contractor-registration-state-pwd%'` · bucket `contractor-registration-state-pwd*/`
+**Previous report:** 2 Nov 2026 10:32 CET (Gujarat stored, Maharashtra built)
 
 ---
 
@@ -19,126 +22,166 @@ Maharashtra on branch `proxy-check-nhai-refetch` @ `5d02ff5` (PR #7, open)
 ---
 
 ## 1. TL;DR
-- **Gujarat R&B: 9,421 records.** 8,087 civil contractors (the list as on 14-09-2026: 8,113 rows, of which 26 are exact repeats) and 1,334 electrical
-  contractors (as on 31-07-2026). Each record has division, firm, address, class, type of firm, registration date and validity.
-- **Maharashtra PWD:** the RTI manual (no. 13) publishes civil (893 pages, **8,966** rows) and electrical (112 pages, **632** rows) lists
-  by district and class. The parser and project are done in PR #7. Most registrations listed were valid only up to **2013–2017**.
-- **Rajasthan:** no public list; contractor registration runs through the state's SSO login. **Karnataka:** the contractor
-  registration portal (`103.241.144.46:8089/crp/`) answers 502.
-- **Next:** merge PR #7, then the remaining large states one at a time ([11](#11-next-steps)).
+- **Stored (hub, 4 Nov):** Gujarat R&B **9,421**, Maharashtra PWD **9,504** (8,875 civil + 629 electrical, mostly registrations from
+  2013–2017), West Bengal PHED **26** approved-vendor lists (scans, saved in the bucket for OCR later).
+- **Built and tested, waiting for PR #9 (about 39,600 more records):**
+  - **Uttarakhand PWD** runs an open online register: **36,400 applications** in classes A–D, with office, firm, address, category,
+    status, registration number and validity. **33,858 have registration granted**, and their registration number ends in the
+    **firm's full PAN**.
+  - **Tripura PWD (R&B):** 1,539 enlisted contractors in classes I–V and electrical, with tender limits; 806 rows link an
+    enlistment certificate PDF, all stored.
+  - **Arunachal Pradesh PWD:** 1,276 valid enlisted civil contractors (as on 30-09-2026), plus 48 linked documents, among them
+    **21 orders cancelling registrations**.
+  - **Haryana PWD:** 302 Class-1 contractors (list for 2014–2020). **Odisha Works:** 76 (45 civil in Super, Special, A and B
+    classes; 31 electrical).
+- **No usable list:** Kerala, Himachal Pradesh and Rajasthan keep registration behind a contractor login; Karnataka's portal
+  answers 502. PWD sites of 16 states (UP, Bihar, MP, Punjab, AP, Telangana, WB PWD and others) don't answer through any of the
+  hub's Indian proxies.
+- **Next:** merge PR #9 and run setup; the five new projects fill within the hour.
 
 ## 2. Where things stand
 
 | Project | State | Items done / total | Failed · pending · running | Records stored | Pace (24 h) | ETA |
 |---|---|---:|---|---:|---:|---|
-| `-state-pwd` (Gujarat) | ✅ COMPLETE | 4 / 4 | 0 · 0 · 0 | 9,421 | 4 | monthly refresh |
-| `-state-pwd-maharashtra` | 🛠 BUILDING | 0 / 4 (not on the hub yet) | — | — | — | the day PR #7 is merged |
-| Other states | 🔍 EXPLORING | — | — | — | — | one discovery each |
-
-- The Gujarat run took one proxy (`95.134.119.254`) and finished 4 items with 0 errors (2 Nov 09:04–09:07 CET).
+| `-state-pwd` (Gujarat) | ✅ COMPLETE | 4 / 4 | 0 · 0 · 0 | 9,421 | 0 | monthly refresh |
+| `-state-pwd-maharashtra` | ✅ COMPLETE | 4 / 4 | 0 · 0 · 0 | 9,504 | 4 | monthly refresh |
+| `-state-pwd-wb` (WB PHED) | ✅ COMPLETE | 2 / 2 | 0 · 0 · 0 | 26 lists | 2 | monthly; OCR later |
+| `-state-pwd-uttarakhand` | 🛠 BUILDING | 0 / 8 (PR #9) | — | — | — | ~5 min after setup (class D is one 91 MB page) |
+| `-state-pwd-tripura` | 🛠 BUILDING | 0 / 2 (PR #9) | — | — | — | ~15 min after setup (certificates) |
+| `-state-pwd-arunachal` | 🛠 BUILDING | 0 / 8 (PR #9) | — | — | — | minutes after setup |
+| `-state-pwd-haryana` | 🛠 BUILDING | 0 / 2 (PR #9) | — | — | — | minutes after setup |
+| `-state-pwd-odisha` | 🛠 BUILDING | 0 / 4 (PR #9) | — | — | — | minutes after setup |
 
 | State | Department | What is public | Status |
 |---|---|---|---|
-| Gujarat | Roads & Buildings | civil (AA to E-2) and electrical (A to E-2) registers, PDF | ✅ collected |
-| Maharashtra | PWD | civil and electrical registers in the RTI manual, PDF | 🛠 PR #7 |
-| Rajasthan | PWD | nothing: sectoral portal app; registration via SSO login | ⛔ login only |
-| Karnataka | PWD | "Contractor Registration" link to a portal on a bare IP (`/crp/`): HTTP 502 | ⚠️ down, retry |
-| Uttar Pradesh, Bihar, Himachal, Madhya Pradesh | PWD | sites did not answer even from India (28 Oct) | ⚠️ retry |
-| others | PWD / WRD / RWD / PHED | not looked at | 🔍 |
+| Gujarat | Roads & Buildings | civil and electrical registers, PDF | ✅ stored |
+| Maharashtra | PWD | civil and electrical registers in the RTI manual, PDF (old) | ✅ stored |
+| West Bengal | PHED | approved vendor lists, 26 scanned PDFs | ✅ stored (OCR later) |
+| Uttarakhand | PWD | online register of every application, classes A–D, HTML report | 🛠 PR #9 |
+| Tripura | PWD (R&B) | enlisted contractors per class, HTML tables + certificate PDFs | 🛠 PR #9 |
+| Arunachal Pradesh | PWD | valid enlisted contractors, classes IAA–III, PDF; cancellation orders | 🛠 PR #9 |
+| Haryana | PWD (B&R) | Class-1 enlisted list 2014–2020, PDF (the search form needs a full name) | 🛠 PR #9 |
+| Odisha | Works | contractor ledger (Super / Special / A / B, electrical MV / HT) | 🛠 PR #9 |
+| Rajasthan | PWD | nothing open; registration via SSO login | ⛔ login only |
+| Kerala | PWD | contractors' portal (`contractors.kerala.gov.in`): login only | ⛔ login only |
+| Himachal Pradesh | PWD | online enlistment (`online.hppwd.gov.in/enlistment`): login only | ⛔ login only |
+| Karnataka | PWD | registration portal on a bare IP (`/crp/`): HTTP 502 on 2 and 4 Nov | ⚠️ down |
+| Tamil Nadu | Highways | site answers (4 Nov) but has no contractor list | 🔍 nothing found |
+| Meghalaya, Delhi, Goa | PWD | tenders only / nothing found | 🔍 nothing found |
+| UP, Bihar, MP, Punjab, AP, Telangana, WB PWD, Chhattisgarh, Jharkhand, Assam, J&K, Manipur, Nagaland, Sikkim, Puducherry, Haryana (old host) | PWD / RCD | sites don't answer through any of the hub's proxies (4 Nov) | ⚠️ unreachable |
 
 ## 3. Pick up here
-- **Repo:** `~/contractor-registration` · **Run tests:** `~/.venvs/cr/bin/python -m pytest -q tests` · **Try one list:**
-  `~/.venvs/cr/bin/python crawl.py --local statepwd '{"list": "maharashtra-pwd-electrical"}'` (no proxy needed)
-- **Next action:** merge PR #7 (adds `-state-pwd-maharashtra`). The next daily setup seeds it, or run Actions → setup.
-- **Waiting on:** trideep (merge PR #7, and choose which states come next).
+- **Repo:** `~/contractor-registration` · **Run tests:** `~/.venvs/cr/bin/python -m pytest -q tests` (49 pass) · **Try one list:**
+  `myproxy run ~/.venvs/cr/bin/python crawl.py --local statepwd '{"uk_class": "B"}'`, or without a proxy
+  `~/.venvs/cr/bin/python crawl.py --local statepwd '{"columns": "arunachal-pwd-class-ii"}'`
+- **Next action:** merge PR #9, then Actions → setup (`gh workflow run setup.yml --ref main`).
+- **Waiting on:** CI on PR #9.
 
 ## 4. What stands out
-1. **Maharashtra's published register is old.** The PDFs were uploaded in March 2025, but the "Registration Valid Upto" dates
-   are mostly 2013–2017. *So what:* treat it as a historical register, and look for a current one (e-registration runs on a login portal).
-2. **Gujarat lists renewals beside the old registration.** The same firm can appear with a 2024 and a 2026 registration
-   (*M/s JNP Infrastructure*, Surat, AA). One Vadodara firm appears 4 times. Records keep each registration apart: 8,113 rows give 8,087 records.
-3. **Gujarat: few lapsed entries.** 144 civil and 5 electrical registrations are past their validity, against
-   1,010 of 9,736 for CPWD ([C01](report-C01.md)). Gujarat seems to prune its list.
-4. **Maharashtra's biggest class is "Unemployed Engineers".** 3,486 of the 8,966 civil rows are class "Unemployed Engineers (VI class)",
-   a reserved category for small works. 427 rows in Pune, Gondia and other districts have no firm name at all.
-5. **Maharashtra lists have typos in their serial numbers** (a block numbered 3526–3537 in place of 3426–3437, and a jump of
-   100 at 6450). Rows are read by position, so no row is lost.
+1. **Uttarakhand publishes PANs.** The registration number of every granted application is `<class><office><category><month-year>:<PAN>`
+   (for example `B1006RD0822:` followed by the PAN). Of 33,858 granted registrations, 33,768 carry a PAN. *So what:* this is the
+   one state register that joins exactly to PMGSY ([C06](report-C06.md)) and to other PAN-keyed data.
+2. **Uttarakhand's register is mostly small contractors.** Class D holds 29,770 of 36,400 applications; class A has 1,944. About 6,000
+   class-D registrations run out in 2026.
+3. **One Uttarakhand application, many offices.** An application sent to several circles appears once per office (one class-D
+   application is listed under 6 offices). Records keep one row per application with all its offices.
+4. **Arunachal publishes its cancellations.** The page links 21 office orders cancelling a contractor's registration (2021–2025) and
+   8 orders extending one; most are scans. *So what:* a small state-level debarment list, beside CPWD's ([C01](report-C01.md)).
+5. **Tripura states each class's tender limit** ("Any amount" for class I, "up to ₹6 crore" for class II, ₹1–1.5 crore for class IV),
+   and 790 of its 1,539 rows are class V (services), mostly valid only until 2020.
+6. **Maharashtra's published register is old.** The PDFs went up in March 2025, but the validity dates are mostly 2013–2017.
 
 ## 5. The source
-- **Gujarat:** `rnb.gujarat.gov.in` (home page 5.8 MB) links two PDFs printed from a spreadsheet, with a text layer. It answers
-  Indian addresses only, including GitHub runners' (CI, 1 Nov), so the project uses `proxy="IN"`.
-- **Maharashtra:** `pwd.maharashtra.gov.in` (S3WaaS WordPress) → *RTI manual no. 13: particulars of recipients of permits*. The files
-  sit on `cdnbbsr.s3waas.gov.in`, a CDN that answers from anywhere (including the team box). Each PDF is uploaded twice under two names; we read one.
+- **Uttarakhand:** `registrationpwd.uk.gov.in` (ASP.NET). `Report/Contractor_Information.aspx?contractor=A|B|C|D` returns the whole
+  class as one table with no sign-in. The server needs TLS legacy renegotiation, which OpenSSL 3 refuses by default (handled in code).
+- **Tripura:** `pwd.tripura.gov.in/enlistment-of-contractors-2/` (WordPress / Elementor): one accordion section per class, each a
+  table; certificates under `/wp-content/uploads/enlistment_uploads/`.
+- **Arunachal:** `arunachalpwd.org/contractors.php` links the lists (`pdf/06102026/Class-…-ason-30092026.pdf`, text layer) and the orders.
+- **Haryana:** `haryanapwd.gov.in/home/docs/Contractor List.pdf` (10 pages, numbered entries). **Odisha:** `works.odisha.gov.in/en/more/contractor-ledger/civil|electrical` (Drupal view, filter per class).
+- **Gujarat, Maharashtra, West Bengal PHED:** as in the previous report (PDFs on `rnb.gujarat.gov.in`, `cdnbbsr.s3waas.gov.in`, `wbphed.gov.in`).
+- All `.gov.in` hosts here answer Indian addresses only; `arunachalpwd.org` and the S3WaaS CDN answer from anywhere.
 
 ### 5.1 Site map
 
 | What | URL | Notes |
 |---|---|---|
-| Gujarat civil list | `rnb.gujarat.gov.in/otherfile/Contractor Registration Final Data.pdf` | 236 pages, "as On 14-09-2026", stated total 8,113 |
-| Gujarat electrical list | `rnb.gujarat.gov.in/otherfile/Aayog Electrical Contractor Registration Data.pdf` | 87 pages, "as on 31-07-2026" |
-| Gujarat registration | `rnbcontractor.com` | contractor login |
-| Maharashtra civil list | `cdnbbsr.s3waas.gov.in/s3ea80421fc06a2ed5c7adc1018e0026df/uploads/2025/03/202503152104805692.pdf` | 893 pages |
-| Maharashtra electrical list | `…/uploads/2025/03/20250315163259010.pdf` | 112 pages |
-| Maharashtra e-registration | `pwd.maharashtra.gov.in/en/service/e-registration-of-contractors/` | login portal |
-| Karnataka registration | `http://103.241.144.46:8089/crp/` | 502 on 2 Nov |
+| Uttarakhand register | `registrationpwd.uk.gov.in/Report/Contractor_Information.aspx?contractor=D` | 91 MB for class D; dashboard counts on `/Dashboard.aspx` |
+| Uttarakhand certificate | `…/Certificate.aspx?appl_no=<n>` | per contractor; not fetched (36k requests) |
+| Tripura enlisted | `pwd.tripura.gov.in/enlistment-of-contractors-2/` | 2 MB page, 11 tables |
+| Arunachal lists | `arunachalpwd.org/pdf/06102026/Class-IAA-I-A_I-ason-30092026.pdf`, `…Class-II-…`, `…Class-III-…` | 27 / 55 / 85 pages |
+| Arunachal class IV, V lists | `arunachalpwd.org/pdf/16102023/list_registered_contractors-classIV.pdf` etc. | scans: stored, OCR later |
+| Haryana Class-1 list | `haryanapwd.gov.in/home/docs/Contractor%20List.pdf` | 302 entries |
+| Haryana search | `haryanapwd.gov.in/enlistment/search_contracter` | needs a full contractor name |
+| Odisha ledger | `works.odisha.gov.in/en/more/contractor-ledger/civil?field_civil_contractor_value=1..4` | 20 rows a page |
+| WB PHED vendors | `wbphed.gov.in/en/approved-vendor-list` | 26 scanned PDFs |
 
 ## 6. How it is collected
-- **Code:** `adapters/statepwd.py`. `page_words` reads each word with its position (pdfium, baseline y). `parse_list` handles Gujarat:
-  columns come from where cells start, and rows from serial numbers. `parse_mh` handles Maharashtra: "District : X Class : Y" lines
-  group the rows, the district count and serial number are paired per line, and phone, dates and EMD are recognised by shape and position.
-- **Queue:** one item per list, plus a monthly copy (`<list>-<YYYY>m<MM>`). One request per item.
-- **Decision (Claude, 2 Nov 2026):** record ids are content hashes, because the lists have no ids. Gujarat hashes firm, address,
-  division, class and both dates; Maharashtra hashes district, class, contractor number, firm and validity.
+- **Code:** `adapters/statepwd.py`, one mode per kind of source: `parse_list` / `parse_mh` (PDF tables by word position: Gujarat,
+  Maharashtra), `parse_uk` (Uttarakhand report), `parse_accordion_tables` (Tripura), `parse_columns` (Arunachal: column edges from
+  each page's header words, rows from serial numbers, carried over page breaks), `parse_numbered` (Haryana), `parse_ledger` (Odisha),
+  `parse_doc_table` / `parse_pdf_links` (documents to store: WB PHED, Arunachal orders). `adapters/common.py` speaks legacy TLS to Uttarakhand.
+- **Queue:** one item per list, class or page, plus a monthly copy (`<item>-<YYYY>m<MM>`). Documents are fetched once (`seen/` markers).
+- **Decision (Claude, 4 Nov 2026):** Uttarakhand records are keyed by application number, with offices merged; other lists without
+  ids use content hashes (class, enlistment number, firm).
+- **Decision (Claude, 4 Nov 2026):** Uttarakhand's per-contractor certificate pages are not fetched (one request each, 36k); the
+  report already carries the registration number and validity.
 
 ## 7. The data
-- Record ids: `gujarat-rnb-civil-<hash>`, `maharashtra-pwd-civil-<hash>`, etc. Each record also carries `state`, `list`, `pdf_path`, `url`, `source`.
-- **Gujarat fields:** `division`, `company`, `address`, `class`, `nature_of_firm`, `registration_date`, `valid_upto` (`DD-MM-YYYY`), `list_as_on`.
-- **Maharashtra fields:** `district`, `class`, `district_sr`, `contractor_number` (raw, e.g. `6993 dt 5/8/2009`), `registration_no`,
-  `registered_on`, `company`, `address`, `phone`, `valid_upto`, `exempted_upto` (`D/M/YYYY`), `emd_exempted` (`Y`/`N`).
-  **`phone` belongs to proprietors**: keep it out of published examples.
+- Record ids: `gujarat-rnb-civil-<hash>`, `maharashtra-pwd-civil-<hash>`, `uttarakhand-pwd-<application no>`, `tripura-pwd-enlisted-<hash>`,
+  `arunachal-pwd-class-ii-<hash>`, `haryana-pwd-class1-<hash>`, `odisha-works-civil-<hash>`; documents `wb-phed-approved-vendors-<hash>`,
+  `arunachal-pwd-documents-<hash>`. Every record has `state`, `list`, `url`, `source`.
+- **Uttarakhand:** `application_no`, `applied_date`, `offices[]`, `company`, `address`, `class`, `category` (Road, Building, Bridge,
+  Electrical, Mechanical, …), `status`, `timeline`, `registration_no`, `pan`, `valid_upto`.
+- **Tripura:** `section`, `enlistment_no`, `contractor`, `father_or_partner`, `address`, `valid_from`, `valid_upto`, `qualified_upto`, `certificate`.
+- **Arunachal:** `class`, `company`, `address`, `enlistment_no`, `enlistment_date`, `valid_upto`, `remarks`, `list_as_on`.
+- Names, fathers' names, phones, e-mails and addresses of proprietors are personal data: keep them out of published examples.
 
-| Gujarat class | Civil | Electrical |
+| Uttarakhand class | Applications | Granted |
 |---|---:|---:|
-| AA | 689 | — |
-| A | 643 | 310 |
-| B | 580 | 125 |
-| C | 1,266 | 81 |
-| D | 878 | 156 |
-| E-1 | 2,817 | 450 |
-| E-2 | 1,214 | 212 |
+| A | 1,944 | 1,681 |
+| B | 816 | 678 |
+| C | 3,870 | 3,481 |
+| D | 29,770 | 28,018 |
 
 ```sql
-select data->>'list', data->>'class', count(*) from public.records where project = 'contractor-registration-state-pwd' group by 1, 2 order by 1, 2;
-select data->>'company', data->>'class', data->>'valid_upto' from public.records where project = 'contractor-registration-state-pwd'
-  and to_date(nullif(data->>'valid_upto', ''), 'DD-MM-YYYY') < current_date;
+-- Uttarakhand registrations granted, by class and category
+select data->>'class', data->>'category', count(*) from public.records
+where project = 'contractor-registration-state-pwd-uttarakhand' and data->>'status' = 'Registration Granted' group by 1, 2 order by 1, 3 desc;
+-- Uttarakhand firms that are also PMGSY contractors (PMGSY masks the PAN: first five and last character)
+select u.data->>'company', p.data->>'company', p.data->>'state' from public.records u
+join public.records p on p.project = 'contractor-registration-pmgsy-contractors' and p.data->>'kind' = 'contractor_kpi'
+ and p.data->>'pan' = u.data->>'pan'
+where u.project = 'contractor-registration-state-pwd-uttarakhand' and u.data->>'pan' <> '';
 ```
 
 ## 8. Verification
-- Tests: 42 passed, using one-page fixtures of each Gujarat PDF and two-page fixtures of each Maharashtra PDF.
-- Cross-checks: Gujarat civil rows 1–8,113 contiguous and equal to the PDF's stated total. Maharashtra civil: 8,966 rows against a
-  last serial of 9,065, explained by the two numbering slips in [4](#4-what-stands-out). Maharashtra electrical: 632 rows,
-  from `scrape-check` with 629 distinct ids and the same ids on rerun.
-- **Not checked:** Maharashtra rows against the PDF by eye beyond the first pages; whether a newer Maharashtra list exists elsewhere on the site.
+- Tests: 49 passed, with fixtures for every format (hand-made names in the new ones).
+- scrape-check through an Indian proxy: Uttarakhand class A, 1,944 records, the same ids on rerun.
+- Local runs (4 Nov): Uttarakhand B 816, Odisha 45 + 31, Arunachal class II 410 and 48 documents (9 links dead), Haryana 302 (serials
+  1–302 contiguous), Tripura 1,539 rows.
+- Cross-checks: Uttarakhand granted counts per class equal the site's dashboard (1,681 / 678 / 3,481 / 28,018); Arunachal serials run
+  without gaps in each class (I: 1–8, 1–8, 1–179; II: 1–410; III: 1–671), and every row has an enlistment date and validity.
+- **Not checked:** Tripura's class V rows against anything (their validity dates are mostly 2020); Maharashtra beyond the first pages.
 
 ## 9. Known gaps and quality issues
 
 | # | Issue | Size | Impact / what to do |
 |---|---|---:|---|
-| 1 | **Most states not covered** (missed by us, so far) | ~30 states | One discovery each; see [11](#11-next-steps). |
-| 2 | **Maharashtra list is old** (at the source) | 9,598 rows | Historical; look for the current register. |
-| 3 | Maharashtra rows without a firm name (at the source) | 427 civil, 1 electrical | Kept; the address and number are still there. |
-| 4 | Gujarat blank cells (at the source) | 587 no firm type, 45 no registration date, 28 no validity | Kept as blanks. |
-| 5 | Exact repeats collapse (at the source) | 26 Gujarat civil, 3 Maharashtra electrical | One record each. |
+| 1 | **States without an open list** (at the source) | ~20 states | Login portals or no answer from India; recheck the unreachable ones monthly. |
+| 2 | **Scans not read** (by decision, OCR later) | 26 WB lists, ~40 Arunachal orders / old lists | Stored in the bucket under `ocr-needed/`. |
+| 3 | Maharashtra list is old (at the source) | 9,504 rows | Historical; the current one is behind e-registration. |
+| 4 | Haryana list ends in 2020 and gives one text per entry (at the source) | 302 | Firm and address are not split. |
+| 5 | Uttarakhand granted rows without a PAN (at the source) | 90 | Registration number kept as is. |
+| 6 | Arunachal links that are dead (at the source) | 9 of 48 | 404; listed as download failures. |
 
 ## 10. Risks and open decisions
-- **Risks:** both parsers depend on the PDF layout. A re-laid-out list yields 0 rows and fails the item (`hub.failure("parse", …)`)
-  rather than storing shifted columns.
-- **To decide (trideep):** the next states. Recommendation: Tamil Nadu, Andhra Pradesh, Telangana and West Bengal PWD next (large
-  road budgets, and these states often publish lists). Retry UP / Bihar / MP once their sites answer.
+- **Risks:** Uttarakhand class D is one 91 MB answer; if the site starts timing out, the item fails rather than storing part of it.
+  The PDF parsers fail an item (`hub.failure("parse", …)`) on a new layout rather than shift columns.
+- **To decide (trideep):** whether to fetch Uttarakhand's 36k certificate pages (one per contractor; adds little beyond the report).
 
 ## 11. Next steps
-**To do now:** 1. Merge PR #7. 2. Retry Karnataka's `/crp/` portal and the UP / Bihar / MP PWD sites through a proxy.
-**To decide:** 3. Which states next (above).
-**Later:** 4. WRD / RWD / PHED departments, which keep separate registers in several states. 5. Join firms across Gujarat,
-Maharashtra, CPWD ([C01](report-C01.md)) and PMGSY ([C06](report-C06.md)).
+**To do now:** 1. Merge PR #9 and run setup.
+**Later:** 2. OCR the WB PHED and Arunachal scans (with the family's OCR switch). 3. Recheck Karnataka `/crp/` and the 16 unreachable
+states monthly. 4. WRD / RWD / PHED registers in the states that answer. 5. Join state registers to PMGSY ([C06](report-C06.md)) by PAN
+(Uttarakhand) and by name and district (the rest).
 **Housekeeping:** none.
