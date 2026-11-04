@@ -418,3 +418,18 @@ def test_pmgsy_awarded_cost_repeated_per_package_is_marked():
     assert marked == {("CG1639", True), ("SK03", False), ("BM0201", False)}
     gone = pmgsy.mark_package_totals([{"package": "X", "sanction_cost_lakh": "1"}])
     assert "awarded_is_package_total" not in gone[0]
+
+
+def test_wb_phed_vendor_lists_table():
+    rows = statepwd.parse_doc_table((PAGES / "wbphed_vendor_lists.html").read_text(encoding="utf-8"), "https://wbphed.gov.in/en/approved-vendor-list")
+    assert len(rows) == 4 and rows[0]["category"] == "Mechanical" and rows[0]["issue_date"] == "12-10-2026"
+    assert rows[0]["url"] == ("https://wbphed.gov.in/resources/approvedVendor/"
+                              "List%20of%20approved%20Vendors%20for%20Elecro-%20Mechanical%20items%20dated%2012.10.2026.pdf")
+    assert rows[2]["description"].startswith("Updated Approved list of vendors (Civil and Electromechanical Items)")
+
+
+def test_pmgsy_contractor_kpi_scores():
+    rows = pmgsy.parse_kpi(load("pmgsy_kpi.json"))
+    assert len(rows) == 4 and rows[0]["company"] == "M/S NIKUMBH BHARDWAZ CONSTRUCTION"
+    assert (rows[0]["construction"], rows[0]["mobilization"], rows[0]["quality"], rows[0]["score"]) == (32.0, 30.0, 25.0, 87.0)
+    assert len(rows[0]["pan"]) == 10 and pmgsy.parse_kpi(None) == []

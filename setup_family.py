@@ -12,7 +12,7 @@ for p in PROJECTS:
                      expected_units=len(p["items"]), expected_records=sum(i["payload"].get("expected", 0) for i in p["items"]))
     held = HOLD_PROXIED and bool(p.get("proxy") or p.get("geo"))
     set_pool(p["name"], FAMILY, p["task"], target=p["target"], env=p["env"], probe=p.get("probe", ""), max_workers=p.get("max_workers"),
-             proxy=p.get("proxy", ""), geo=p.get("geo", ""), pool=not held)
+             proxy=p.get("proxy", ""), geo=p.get("geo", ""), proxy_only=p.get("proxy_only"), pool=not held)
     if held:
         print(p["name"], "held out of the pool (HOLD_PROXIED in family.py)")
     print(p["name"], "queue:", seed_queue(p["name"], p["items"], reset_failed=True))

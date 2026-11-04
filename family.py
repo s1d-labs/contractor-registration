@@ -75,7 +75,7 @@ OCR = False
 
 # The hub owner's pause on Indian proxies and Indian servers (2 Nov 2026, ~24 hours, while 40 more proxies are added): projects
 # with proxy="IN" are taken out of the pool (set_pool(pool=False)); their queues are kept. Set back to False, then run setup.
-HOLD_PROXIED = True
+HOLD_PROXIED = False
 
 
 def _env(adapter, site, ocr=True):
@@ -144,6 +144,7 @@ PROJECTS = [
         "title": "MES approved products, approved consultants and works policy letters",
         "task": "crawl", "target": "mes.gov.in", "env": _env("mes", "https://mes.gov.in"),
         "proxy": "IN", "max_workers": 2,
+        "proxy_only": ["91.124.42."],   # mes.gov.in refuses the 191.219.x and 95.134.119.x proxies (2-3 Nov 2026)
         "unit_label": "page", "record_label": "row",
         "items": [{"key": f"{path.replace('/', '-')}-p{k}", "payload": {"path": path, "page": k, "files": True}}
                   for path, pages in MES_WORKS.items() for k in range(pages)]
@@ -159,7 +160,10 @@ PROJECTS = [
         "unit_label": "state x status", "record_label": "contractor",
         # once, then every month (the master changes slowly)
         "items": [{"key": f"{code:02d}-{status}{sfx}", "payload": {"state": code, "state_name": name, "status": status}}
-                  for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items() for status in "ABEI"],
+                  for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items() for status in "ABEI"]
+                 # the dashboard's performance score per contractor (construction, mobilisation, quality; 7,008 on 3 Nov 2026)
+                 + [{"key": f"kpi-{code:02d}{sfx}", "payload": {"report": "kpi", "state": code, "state_name": name}}
+                    for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items()],
     },
     {
         # erp.cpwd.gov.in (CPWD's new portal; cpwd.gov.in does not answer) answers Indian addresses only: through the Mumbai proxies
@@ -205,6 +209,15 @@ PROJECTS = [
         "max_workers": 1,
         "unit_label": "list", "record_label": "contractor",
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}} for sfx in ("", f"-{MONTH}") for name in MH_LISTS],
+    },
+    {
+        # West Bengal PHED's approved vendor lists (civil and electro-mechanical items): scanned PDFs, stored for OCR later
+        "name": f"{FAMILY}-state-pwd-wb",
+        "title": "West Bengal PHED approved vendors (civil and electro-mechanical items), scanned lists",
+        "task": "crawl", "target": "wbphed.gov.in", "env": _env("statepwd", "https://wbphed.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "page", "record_label": "list",
+        "items": [{"key": f"wb-phed-approved-vendors{sfx}", "payload": {"doc_page": "wb-phed-approved-vendors"}} for sfx in ("", f"-{MONTH}")],
     },
     {
         # the vendor directory is on IREPS behind a mobile-OTP sign-in; RDSO's own page lists the items with few sources

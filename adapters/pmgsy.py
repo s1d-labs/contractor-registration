@@ -15,6 +15,10 @@ state: the works awarded (package, road, sanction date, lengths, sanctioned cost
 terminated. A drill-through is a postback of the report viewer's form, then the CSV export of the report it opens.
 The public reports do not name the contractor of a work (only the contractor master above lists contractors).
 Queue item payload: {"report": "agreements", "state": 30, "state_name": "Sikkim"}
+
+The dashboard's "KPI Based Contractors' Performance" (/dbweb) scores contractors out of 100: construction, mobilisation and
+quality, each with its points, and the contractor's PAN in full. One JSON request per state.
+Queue item payload: {"report": "kpi", "state": 30, "state_name": "Sikkim"}; one record per contractor (`kpi-<state>-<PAN>`).
 One record per work (`<state>-awarded-<hash>`, `<state>-terminated-<hash>`); both CSVs are stored under docs/agreements/.
 """
 import csv
@@ -58,6 +62,31 @@ def iframe_src(report_html):
 def export_url(viewer_html, fmt="CSV"):
     m = re.search(r'"ExportUrlBase":"([^"]+)"', viewer_html or "")
     return SITE + m.group(1).replace("\\u0026", "&") + fmt if m else None
+
+
+KPI = SITE + "/dbweb/Contractor/GetContractorData"
+
+
+def parse_kpi(rows):
+    """[{state, company, pan, construction, mobilization, quality, score}] from the dashboard's JSON. Pure."""
+    num = lambda v: None if v is None else round(float(v), 2)
+    return [{"state": clean(r.get("MAST_STATE_NAME")), "company": clean(r.get("COMPANY_NAME")), "pan": clean(r.get("PAN")),
+             "construction": num(r.get("CONSTRUCTION")), "mobilization": num(r.get("MOBILIZATION")), "quality": num(r.get("QUALITY")),
+             "score": num(r.get("SCORE"))} for r in rows or [] if isinstance(r, dict)]
+
+
+def kpi(ctx, payload):
+    code = int(payload["state"])
+    js = ctx.get_json("POST", KPI, json={"StateID": str(code), "Company": "", "ScoreGreaterThan": None, "ScoreLessThan": None}, timeout=180)
+    if js is None:
+        return None
+    rows = parse_kpi(js)
+    for r in rows:
+        ident = r["pan"] or sha1(r["company"].upper())[:12]
+        ctx.record(f"kpi-{code:02d}-{ident}", {"kind": "contractor_kpi", "state_code": code, **r,
+                                              "band": "satisfactory" if (r["score"] or 0) >= 75 else "average" if (r["score"] or 0) >= 55 else "unsatisfactory",
+                                              "source": f"{SITE}/dbweb/ (KPI Based Contractors' Performance)"})
+    return len(rows)
 
 
 def report_form(page_html):
@@ -194,6 +223,8 @@ def agreements(ctx, payload):
 def run(ctx, payload):
     if payload.get("report") == "agreements":
         return agreements(ctx, payload)
+    if payload.get("report") == "kpi":
+        return kpi(ctx, payload)
     code, status = int(payload["state"]), payload.get("status", "A")
     name = payload["state_name"]
     layout = ctx.request("GET", LAYOUT, timeout=60)

@@ -1,7 +1,8 @@
 # C04: RDSO / railway approved vendors (rdso.indianrailways.gov.in, IREPS UVAM)
 
-**Status:** ⛔ BLOCKED for vendor names: the directory needs a human sign-in (mobile number, image code, OTP). The tool for a
-manual pull is ready. RDSO's open item lists (133 items) are built, but 0 / 2 items are done: two proxies were refused, and the site answers again now.
+**Status:** 💤 PARKED for vendor names: **the IREPS sign-in is on hold until trideep can do it (decided 3 Nov 2026)**. The
+directory needs a human sign-in (mobile number, image code, OTP); the tool for that pull is ready on `main`. RDSO's open item
+lists (133 items) are back in the pool since the proxies returned on 3 Nov.
 **Updated:** 2 Nov 2026 10:32 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@685c82a` (`main`);
 `tools/ireps_vendors.py` on `proxy-check-nhai-refetch` @ `5d02ff5` (PR #7, open)
 **Projects:** `contractor-registration-rdso-items` (adapter `rdso`, target `rdso.indianrailways.gov.in`, `proxy="IN"`, 1 worker)
@@ -31,13 +32,13 @@ manual pull is ready. RDSO's open item lists (133 items) are built, but 0 / 2 it
 | Project | State | Items done / total | Failed · pending · running | Records stored | Pace (24 h) | ETA |
 |---|---|---:|---|---:|---:|---|
 | `-rdso-items` | ⚠️ STALLED | 0 / 2 | 2 · 0 · 0 | 0 | 0 | next retry; 133 records expected |
-| IREPS vendor directory | ⛔ BLOCKED | — | — | — | — | after a human sign-in |
+| IREPS vendor directory | 💤 PARKED | — | — | — | — | **on hold**: after trideep's sign-in (not scheduled) |
 
 - Runs: 2, both finished with 0 records (2 Nov 09:07 and 09:49 CET), with 4 and 2 connection errors. The items have 3 tries each of 40.
 
 ## 3. Pick up here
 - **Repo:** `~/contractor-registration` · **Try the item lists:** `myproxy run ~/.venvs/cr/bin/python crawl.py --local rdso '{"section": "0,5,6634"}'`
-- **IREPS sign-in (needs the phone that gets the OTP), once PR #7 is merged:**
+- **🚩 ON HOLD (3 Nov 2026): trideep will do the sign-in later.** When it's time (needs the phone that gets the OTP):
   ```
   cd ~/contractor-registration && git pull
   ~/.venvs/cr/bin/python tools/ireps_vendors.py login
@@ -45,7 +46,7 @@ manual pull is ready. RDSO's open item lists (133 items) are built, but 0 / 2 it
   It asks for the mobile number, prints the path of the verification image (open it in VS Code), asks for the code, sends the
   OTP, and asks for the OTP (not shown). The landing page goes to `~/ireps-export/<date>/landing.html`. Tell Claude when it's
   there, so the export can be written while the session lasts.
-- **Waiting on:** trideep (merge PR #7, do the sign-in, check the IREPS terms of use).
+- **Waiting on:** trideep (the sign-in, on hold; check the IREPS terms of use first).
 
 ## 4. What stands out
 1. **No Indian vendor for some catenary and radio items.** In the lists, sub-items such as the *Spring Auto tensioning device for
@@ -109,6 +110,6 @@ where project = 'contractor-registration-rdso-items' order by (data->>'vendor_co
 - **To decide (trideep):** whether the IREPS terms allow storing the directory, and who signs in each month.
 
 ## 11. Next steps
-**To do now:** 1. Merge PR #7. 2. Run `tools/ireps_vendors.py login` once with the phone. 3. Then Claude maps the pages and writes `export`.
+**On hold (trideep):** 1. Run `tools/ireps_vendors.py login` once with the phone. 2. Then Claude maps the pages and writes `export`.
 **Later:** 4. Join vendor names to RDSO items and to the other registers.
 **Housekeeping:** delete `~/ireps-export` after uploading it to the bucket.
