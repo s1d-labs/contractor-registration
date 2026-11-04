@@ -220,6 +220,27 @@ PROJECTS = [
         "items": [{"key": f"wb-phed-approved-vendors{sfx}", "payload": {"doc_page": "wb-phed-approved-vendors"}} for sfx in ("", f"-{MONTH}")],
     },
     {
+        # PWD Uttarakhand's online registration: every application per class with status, registration number (ending in the
+        # firm's PAN) and validity; 36,405 applications on 4 Nov 2026 (A 1,944, B 816, C 3,870, D 29,775). One GET per class.
+        "name": f"{FAMILY}-state-pwd-uttarakhand",
+        "title": "PWD Uttarakhand registered contractors (online registration, classes A to D)",
+        "task": "crawl", "target": "registrationpwd.uk.gov.in", "env": _env("statepwd", "https://registrationpwd.uk.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "class", "record_label": "application",
+        "items": [{"key": f"uttarakhand-pwd-{c}{sfx}", "payload": {"uk_class": c, "expected": n}}
+                  for sfx in ("", f"-{MONTH}") for c, n in (("A", 1944), ("B", 816), ("C", 3870), ("D", 29770))],
+    },
+    {
+        # Odisha Works Department's contractor ledger: Super / Special / A / B class civil and MV / HT electrical contractors
+        "name": f"{FAMILY}-state-pwd-odisha",
+        "title": "Odisha Works Department contractor ledger (civil and electrical)",
+        "task": "crawl", "target": "works.odisha.gov.in", "env": _env("statepwd", "https://works.odisha.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "ledger", "record_label": "contractor",
+        "items": [{"key": f"{name}{sfx}", "payload": {"ledger": name}}
+                  for sfx in ("", f"-{MONTH}") for name in ("odisha-works-civil", "odisha-works-electrical")],
+    },
+    {
         # the vendor directory is on IREPS behind a mobile-OTP sign-in; RDSO's own page lists the items with few sources
         "name": f"{FAMILY}-rdso-items",
         "title": "RDSO items with fewer than three / five approved sources, or no Indian source",

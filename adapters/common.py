@@ -129,12 +129,37 @@ class TimeUp(Exception):
     """The run's time budget (SCRAPE_MAX_HOURS) is used up: the item is handed back unfinished and retried later."""
 
 
+LEGACY_TLS = ("https://registrationpwd.uk.gov.in/",)   # servers that still renegotiate TLS the old way (OpenSSL 3 refuses by default)
+
+
+def legacy_tls(session):
+    import ssl
+    from requests.adapters import HTTPAdapter
+
+    class Legacy(HTTPAdapter):
+        def _ctx(self, kw):
+            ctx = ssl.create_default_context()
+            ctx.options |= getattr(ssl, "OP_LEGACY_SERVER_CONNECT", 0x4)
+            kw["ssl_context"] = ctx
+            return kw
+
+        def init_poolmanager(self, *a, **kw):
+            return super().init_poolmanager(*a, **self._ctx(kw))
+
+        def proxy_manager_for(self, *a, **kw):
+            return super().proxy_manager_for(*a, **self._ctx(kw))
+
+    for prefix in LEGACY_TLS:
+        session.mount(prefix, Legacy())
+    return session
+
+
 class Ctx:
     """What an adapter works with: requests (counted, spaced by the hub's delay), records, files."""
 
     def __init__(self, hub, session=None, project="", deadline=None):
         self.hub = hub
-        self.session = session or requests.Session()
+        self.session = legacy_tls(session or requests.Session())
         self.session.headers["User-Agent"] = UA
         self.bucket = requests.Session()
         self.bucket.trust_env = False          # the bucket is read directly, not through a project's site proxy

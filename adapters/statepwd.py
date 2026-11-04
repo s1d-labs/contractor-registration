@@ -14,7 +14,16 @@ lines. The columns are found from where cells start on the page (the header's wo
 every word goes to the row whose serial number is the nearest above it. rnb.gujarat.gov.in answers Indian addresses only; the
 Maharashtra files are on a CDN that answers from anywhere.
 
-Queue item payload: {"list": "gujarat-rnb-civil"}, or {"doc_page": "wb-phed-approved-vendors"}
+Online registers (HTML tables):
+  uttarakhand-pwd-<A|B|C|D>  registrationpwd.uk.gov.in  PWD Uttarakhand's online contractor registration: every application of the
+                          class (36,405 on 4 Nov 2026, 33,858 granted) with office, dates, firm, address, category, status,
+                          registration number (which ends in the firm's PAN) and validity. One GET per class (class D: 91 MB).
+                          The server needs TLS legacy renegotiation (common.LEGACY_TLS).
+  odisha-works-<civil|electrical>  works.odisha.gov.in  Works Department contractor ledger (Super / Special / A / B class civil,
+                          MV / HT electrical): name and address, a Drupal table of 20 rows a page, read per class.
+
+Queue item payload: {"list": "gujarat-rnb-civil"}, {"doc_page": "wb-phed-approved-vendors"}, {"uk_class": "A"} or
+{"ledger": "odisha-works-civil"}
 One record per row: division, company, address, class, nature of firm, registration date, certificate valid up to, and the
 list's "as on" date. The PDF is stored as pdf/<list>/<list>-<as on>.pdf.
 """
@@ -37,6 +46,15 @@ SOURCES = {
 }
 DOC_PAGES = {         # page -> (state, URL of the page listing the PDFs)
     "wb-phed-approved-vendors": ("West Bengal", "https://wbphed.gov.in/en/approved-vendor-list"),
+}
+UK = "https://registrationpwd.uk.gov.in/Report/Contractor_Information.aspx?contractor="
+UK_SOURCE = "https://registrationpwd.uk.gov.in/Dashboard.aspx (PWD Uttarakhand, Contractor Registration System: Registration Reports)"
+PAN = re.compile(r"^(.*?):\s*([A-Z]{5}[0-9]{4}[A-Z])$")
+LEDGERS = {           # ledger -> (state, page, filter field, {value: class})
+    "odisha-works-civil": ("Odisha", "https://works.odisha.gov.in/en/more/contractor-ledger/civil", "field_civil_contractor_value",
+                           {"1": "Super Class", "2": "Special Class", "3": "A Class", "4": "B Class"}),
+    "odisha-works-electrical": ("Odisha", "https://works.odisha.gov.in/en/more/contractor-ledger/electrical",
+                                "field_electrical_contractor_value", {"1": "MV", "2": "HT"}),
 }
 DATE = re.compile(r"\b\d{2}-\d{2}-\d{4}\b")
 MH_DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
@@ -299,6 +317,96 @@ def run_doc_page(ctx, name):
     return len(rows)
 
 
+def _cells(row_html):
+    import html as _html
+    return [clean(_html.unescape(re.sub(r"<[^>]+>", " ", c))) for c in re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.S)]
+
+
+UK_FIELDS = ["sno", "office", "application_no", "applied_date", "company", "address", "class", "category", "status", "timeline",
+             "registration_no", "valid_upto"]
+
+
+def parse_uk(page_html):
+    """Rows of PWD Uttarakhand's "View All Application with their Status" table, one per application: an application sent to
+    several offices is listed once per office, so those rows merge into one with every office in `offices`. The registration
+    number ends in ":<PAN>", split off into `pan`. Pure."""
+    i = (page_html or "").find('id="tblAllApplications"')
+    if i < 0:
+        return []
+    body = page_html[i:page_html.find("</table>", i)]
+    out, by_no = [], {}
+    for r in re.findall(r"<tr.*?</tr>", body, re.S):
+        c = _cells(r)
+        if len(c) != len(UK_FIELDS) or not c[2].isdigit():
+            continue
+        row = dict(zip(UK_FIELDS, c))
+        row["class"] = row["class"].replace("Class ", "")
+        m = PAN.match(row["registration_no"])
+        row["pan"] = m.group(2) if m else ""
+        if m:
+            row["registration_no"] = m.group(1).strip()
+        if row["application_no"] in by_no:
+            by_no[row["application_no"]]["offices"].append(row["office"])
+            continue
+        row["offices"] = [row.pop("office")]
+        row.pop("sno")
+        by_no[row["application_no"]] = row
+        out.append(row)
+    return out
+
+
+def run_uk(ctx, cls):
+    url = UK + cls
+    r = ctx.request("GET", url, timeout=600)
+    if r is None:
+        return None
+    rows = parse_uk(r.content.decode("utf-8", "replace"))
+    if not rows:
+        ctx.hub.failure("parse", f"uttarakhand-pwd-{cls}", "no applications found in the report (layout changed, or signed out?)")
+        return None
+    for row in rows:
+        ctx.record(f"uttarakhand-pwd-{row['application_no']}", {"kind": "state_contractor", "list": f"uttarakhand-pwd-{cls}",
+                                                                 "state": "Uttarakhand", **row, "url": url, "source": UK_SOURCE})
+    return len(rows)
+
+
+def parse_ledger(page_html):
+    """([{sr, company, address}], has next page) from a Drupal views table (Odisha Works contractor ledger). Pure."""
+    import html as _html
+    t = re.search(r"<tbody>(.*?)</tbody>", page_html or "", re.S)
+    rows = []
+    for r in re.findall(r"<tr.*?</tr>", t.group(1) if t else "", re.S):
+        cells = re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)
+        if len(cells) < 3:
+            continue
+        address = "; ".join(clean(_html.unescape(re.sub(r"<[^>]+>", " ", p))) for p in re.split(r"</p>|<br\s*/?>", cells[2]))
+        rows.append({"sr": clean(re.sub(r"<[^>]+>", " ", cells[0])), "company": clean(_html.unescape(re.sub(r"<[^>]+>", " ", cells[1]))),
+                     "address": "; ".join(x for x in address.split("; ") if x)})
+    return rows, 'rel="next"' in (page_html or "") or "Next page" in (page_html or "")
+
+
+def run_ledger(ctx, name):
+    state, url, field, classes = LEDGERS[name]
+    n = 0
+    for value, cls in classes.items():
+        for page in range(200):
+            r = ctx.request("GET", url, params={field: value, "page": page}, timeout=120)
+            if r is None:
+                return None
+            rows, more = parse_ledger(r.content.decode("utf-8", "replace"))
+            for row in rows:
+                ctx.record(f"{name}-{sha1(cls, row['company'].upper(), row['address'].upper())[:14]}",
+                           {"kind": "state_contractor", "list": name, "state": state, "class": cls, **row,
+                            "url": url, "source": f"{url} (Works Department, Government of Odisha: Contractor Ledger)"})
+            n += len(rows)
+            if not rows or not more:
+                break
+    if not n:
+        ctx.hub.failure("parse", name, "no contractors found in the ledger (layout changed?)")
+        return None
+    return n
+
+
 def mh_row_id(name, row):
     return f"{name}-{sha1(row['district'], row['class'], row['contractor_number'].upper(), row['company'].upper(), row['valid_upto'])[:14]}"
 
@@ -306,6 +414,10 @@ def mh_row_id(name, row):
 def run(ctx, payload):
     if payload.get("doc_page"):
         return run_doc_page(ctx, payload["doc_page"])
+    if payload.get("uk_class"):
+        return run_uk(ctx, payload["uk_class"])
+    if payload.get("ledger"):
+        return run_ledger(ctx, payload["ledger"])
     name = payload["list"]
     state, url = LISTS[name]
     r = ctx.request("GET", url, timeout=300)

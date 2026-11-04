@@ -433,3 +433,23 @@ def test_pmgsy_contractor_kpi_scores():
     assert len(rows) == 4 and rows[0]["company"] == "M/S NIKUMBH BHARDWAZ CONSTRUCTION"
     assert (rows[0]["construction"], rows[0]["mobilization"], rows[0]["quality"], rows[0]["score"]) == (32.0, 30.0, 25.0, 87.0)
     assert len(rows[0]["pan"]) == 10 and pmgsy.parse_kpi(None) == []
+
+
+def test_uttarakhand_pwd_applications():
+    rows = statepwd.parse_uk((PAGES / "ukpwd_contractors.html").read_text())
+    assert [r["application_no"] for r in rows] == ["69424", "53624", "107668"]
+    first = rows[0]
+    assert first["registration_no"] == "B1006ME1223" and first["pan"] == "AAAAA1111A"
+    assert first["class"] == "B" and first["category"] == "Mechanical" and first["status"] == "Registration Granted"
+    assert first["valid_upto"] == "30 Jun 2026" and first["offices"] == ["CE-Dehradun"]
+    assert rows[1]["company"] == "Sample & Sons" and rows[1]["pan"] == "" and rows[1]["registration_no"] == ""
+    assert rows[2]["offices"] == ["CE-Tehri", "CE-Pauri"]          # one application sent to two offices
+    assert statepwd.parse_uk("<html>signed out</html>") == []
+
+
+def test_odisha_works_ledger():
+    rows, more = statepwd.parse_ledger((PAGES / "odisha_ledger.html").read_text())
+    assert more
+    assert rows[0] == {"sr": "1", "company": "M/s Example Infra Pvt. Ltd.", "address": "At- Test Sahi; Dist: Cuttack, Odisha"}
+    assert rows[1]["company"] == "Sample Constructions & Co." and rows[1]["address"] == "Plot 4, Unit-2; Bhubaneswar"
+    assert statepwd.parse_ledger("<table><tbody></tbody></table>") == ([], False)
