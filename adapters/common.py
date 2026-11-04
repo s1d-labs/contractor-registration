@@ -73,9 +73,21 @@ def pdf_text(data):
         return "", 0
 
 
+WORD = re.compile(r"[\"'(\[]?(?:[A-Za-z][a-z]{2,}|[A-Z]{2,}|[\u0900-\u097F]{2,}|\d[\d/.,:-]*|[A-Za-z]\.)[\"')\],.:;]*")
+READABLE = 0.35                 # share of word-like tokens below which a text layer is a scanner's unreadable OCR
+
+
+def readable(text):
+    """Share of the text's tokens that look like words or numbers (0-1). A scanner's failed OCR layer scores below 0.2,
+    real text 0.4-1 (measured on 714 Tripura certificates and 400 MoRTH and MES PDFs, 4 Nov 2026). Pure."""
+    tokens = (text or "").split()
+    return sum(1 for t in tokens if WORD.fullmatch(t)) / len(tokens) if tokens else 0.0
+
+
 def needs_ocr(text, pages):
-    """A PDF whose pages carry (almost) no text layer is a scan: it goes under ocr-needed/ for a later OCR pass."""
-    return pages > 0 and len(text.strip()) < 40 * min(pages, MAX_PDF_PAGES)
+    """A PDF whose pages carry (almost) no text layer, or only an unreadable one, is a scan: it goes under ocr-needed/ for
+    a later OCR pass."""
+    return pages > 0 and (len(text.strip()) < 40 * min(pages, MAX_PDF_PAGES) or readable(text) < READABLE)
 
 
 class LocalHub:
@@ -275,7 +287,7 @@ class Ctx:
             self.hub.failure("download", url[:200], f"file larger than {MAX_FILE_BYTES // 2**20} MB: not stored")
             return None
         ext = url_ext(url) or ("pdf" if data[:5] == b"%PDF-" else "bin")
-        text, pages, scan, ocr_read = "", 0, False, 0
+        text, pages, scan, ocr_read, ocred = "", 0, False, 0, False
         if ext == "pdf" and data[:5] == b"%PDF-":
             text, pages = pdf_text(data)
             scan = needs_ocr(text, pages)
@@ -284,7 +296,7 @@ class Ctx:
                 from adapters.ocr import ocr_pdf
                 ocr_text, _, ocr_read = ocr_pdf(data)
                 if ocr_text.strip():
-                    text = ocr_text
+                    text, ocred = ocr_text, True
                     self.hub.metric("ocr_pages", ocr_read)
         else:
             folder = "docs"
@@ -292,7 +304,7 @@ class Ctx:
         path = f"{folder}/{section}/{sha1(url)[:8]}-{name}"
         ctype = r.headers.get("Content-Type", "application/octet-stream").split(";")[0]
         stored = {"path": path, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(), "ext": ext, "pages": pages,
-                  "needs_ocr": scan, "ocr": bool(scan and text.strip()), "text_path": path + ".txt" if text.strip() else None,
+                  "needs_ocr": scan, "ocr": ocred, "text_path": path + ".txt" if text.strip() else None,
                   "text_chars": len(text), "text": no_nul(text[:RECORD_TEXT])}
         mark = {"url": url, "Content-Length": r.headers.get("Content-Length"), "Last-Modified": r.headers.get("Last-Modified"),
                 "stored": stored}

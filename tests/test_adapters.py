@@ -142,6 +142,16 @@ def test_a_pdf_without_a_text_layer_is_flagged_for_ocr():
     assert not common.needs_ocr("x" * 500, 1)
 
 
+def test_an_unreadable_text_layer_is_flagged_for_ocr():
+    junk = "f\\€\nd\\T\nt9\nE.L\n!\n(s\neCI\n\"-,I.rfi\n,-.4\nLU'lt *\n[:* :-affi:>11 f,L\nreL;-\n" * 20
+    real = ("Certificate of enlistment. The firm is enlisted as Class III contractor in the Public Works Department "
+            "(Roads and Buildings) for the period 01/04/2024 to 31/03/2027, tender limit Rs. 50.00 lakh. ") * 5
+    hindi = "ठेकेदार का पंजीकरण प्रमाण पत्र लोक निर्माण विभाग दिनांक 01/04/2024 " * 10
+    assert common.readable(junk) < 0.2 and common.needs_ocr(junk, 1)
+    assert common.readable(real) > 0.6 and not common.needs_ocr(real, 1)
+    assert not common.needs_ocr(hindi, 1)
+
+
 def test_local_hub_stores_files_under_the_project(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     hub = common.LocalHub("p")

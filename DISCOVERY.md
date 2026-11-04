@@ -9,10 +9,18 @@ reports are newer.
 - PR #8 squash-merged (`51547a2`) and setup run: proxied projects back in the pool, MES on `proxy_only=["91.124.42."]`.
 - **MES complete** (38/38, 290 rows). **PMGSY KPI stored:** 7,087 contractor scores with full PAN (6,978 match the master by state +
   masked PAN). **WB PHED:** 26 scanned lists stored (OCR later). **NHAI re-fetch:** all 1,551 links still empty at NHAI (gap at source).
-- **C02, five more states (PR #9, open):** Uttarakhand online register (36,400 applications, 33,858 granted, PAN in the registration
-  number; site needs TLS legacy renegotiation, handled in `common.legacy_tls`), Tripura (1,539 + certificate PDFs with text layer),
-  Arunachal (1,276 + 48 documents incl. 21 cancellation orders; answers without a proxy), Haryana Class-1 list (302, 2014–2020),
-  Odisha Works ledger (76).
+- **C02, five more states (PR #9 merged; stored 4 Nov after 15:10 CET):** Uttarakhand online register **36,409** (33,874 granted;
+  PAN in the registration number on 33,824 records, 15,157 different PANs; **183 match the PMGSY scores** by full PAN; site needs TLS
+  legacy renegotiation, handled in `common.legacy_tls`), Tripura **1,488 of 1,539** (rest after the daily setup), Arunachal **1,276
+  + 48 documents** incl. 21 cancellation orders (answers without a proxy), Haryana Class-1 **297** (302 rows; 5 repeated in the PDF),
+  Odisha Works **76**.
+- **Stale runner jobs:** pool jobs that started before a merge run the old code until they end. On 4 Nov they used all 40 attempts
+  of the new items (`KeyError: 'list'`) in two hours; a setup run (`reset_failed`) put them back. Ask Sarthak if a job can refetch
+  `main` between assignments.
+- **Tripura certificates (at the source):** 806 "View PDF" links lead to only 287 files (row 00852 links 00851.pdf; one file is
+  linked from 26 rows). Their text layer is the scanner's failed OCR (unreadable on 664 of 714 records), not real text.
+  `common.needs_ocr` now also flags a text layer with few word-like tokens (`common.readable` < 0.35), and `tools/build_queues.py`
+  checks the state lists' files again: 236 Tripura, 26 WB PHED and 12 Arunachal files added to `queues/ocr.json.gz`.
 - **C02 dead ends (4 Nov, through proxy 91.124.42.191):** login only: Kerala (`contractors.kerala.gov.in`), Himachal
   (`online.hppwd.gov.in/enlistment`), Rajasthan (SSO). Karnataka `/crp/` 502. Haryana's search form needs a full name. TN Highways
   answers but has no list. No answer: UP, Bihar (rcd), MP, Punjab, AP, Telangana, WB PWD, Chhattisgarh, Jharkhand, Assam, J&K, Manipur,
