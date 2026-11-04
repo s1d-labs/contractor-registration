@@ -1,12 +1,13 @@
 # C02: State PWD / R&B / PHED registered contractors (8 states)
 
 **Status:** ⏳ RUNNING. **Gujarat** (9,421 contractors), **Maharashtra** (9,504) and **West Bengal PHED** (26 scanned vendor lists) are stored.
-Five more states are built and tested, and wait for PR #9: **Uttarakhand** (36,400 applications, 33,858 registered, firm PAN on each),
+Five more states are merged (PR #9) and queued; the pool's runner jobs that started before the merge ran old code, so they fill
+after those jobs end (setup re-run ~15:00 CET, or the daily setup at 02:30 CET): **Uttarakhand** (36,400 applications, 33,858 registered, firm PAN on each),
 **Tripura** (1,539), **Arunachal Pradesh** (1,276 plus 48 orders), **Haryana** (302) and **Odisha** (76). About 20 other states publish
 no list, keep it behind a login, or don't answer from India.
 **Updated:** 4 Nov 2026 09:50 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`);
-new states on branch `c02-uttarakhand-odisha` (PR #9, open)
-**Projects:** `contractor-registration-state-pwd` (Gujarat), `-state-pwd-maharashtra`, `-state-pwd-wb`; after PR #9: `-state-pwd-uttarakhand`,
+new states `24d7efa` (PR #9, merged 4 Nov 10:01 CET)
+**Projects:** `contractor-registration-state-pwd` (Gujarat), `-state-pwd-maharashtra`, `-state-pwd-wb`, `-state-pwd-uttarakhand`,
 `-state-pwd-tripura`, `-state-pwd-arunachal`, `-state-pwd-haryana`, `-state-pwd-odisha`. All use adapter `statepwd`, 1 worker each;
 `proxy="IN"` except Maharashtra (CDN) and Arunachal, which answer from anywhere.
 **Data:** `select … from public.records where project like 'contractor-registration-state-pwd%'` · bucket `contractor-registration-state-pwd*/`
@@ -24,7 +25,7 @@ new states on branch `c02-uttarakhand-odisha` (PR #9, open)
 ## 1. TL;DR
 - **Stored (hub, 4 Nov):** Gujarat R&B **9,421**, Maharashtra PWD **9,504** (8,875 civil + 629 electrical, mostly registrations from
   2013–2017), West Bengal PHED **26** approved-vendor lists (scans, saved in the bucket for OCR later).
-- **Built and tested, waiting for PR #9 (about 39,600 more records):**
+- **Built, tested and queued (PR #9 merged; about 39,600 more records):**
   - **Uttarakhand PWD** runs an open online register: **36,400 applications** in classes A–D, with office, firm, address, category,
     status, registration number and validity. **33,858 have registration granted**, and their registration number ends in the
     **firm's full PAN**.
@@ -37,7 +38,7 @@ new states on branch `c02-uttarakhand-odisha` (PR #9, open)
 - **No usable list:** Kerala, Himachal Pradesh and Rajasthan keep registration behind a contractor login; Karnataka's portal
   answers 502. PWD sites of 16 states (UP, Bihar, MP, Punjab, AP, Telangana, WB PWD and others) don't answer through any of the
   hub's Indian proxies.
-- **Next:** merge PR #9 and run setup; the five new projects fill within the hour.
+- **Next:** nothing to do: the items retry. If any is still failed tomorrow morning, check `last_error` in `public.queue`.
 
 ## 2. Where things stand
 
@@ -46,11 +47,11 @@ new states on branch `c02-uttarakhand-odisha` (PR #9, open)
 | `-state-pwd` (Gujarat) | ✅ COMPLETE | 4 / 4 | 0 · 0 · 0 | 9,421 | 0 | monthly refresh |
 | `-state-pwd-maharashtra` | ✅ COMPLETE | 4 / 4 | 0 · 0 · 0 | 9,504 | 4 | monthly refresh |
 | `-state-pwd-wb` (WB PHED) | ✅ COMPLETE | 2 / 2 | 0 · 0 · 0 | 26 lists | 2 | monthly; OCR later |
-| `-state-pwd-uttarakhand` | 🛠 BUILDING | 0 / 8 (PR #9) | — | — | — | ~5 min after setup (class D is one 91 MB page) |
-| `-state-pwd-tripura` | 🛠 BUILDING | 0 / 2 (PR #9) | — | — | — | ~15 min after setup (certificates) |
-| `-state-pwd-arunachal` | 🛠 BUILDING | 0 / 8 (PR #9) | — | — | — | minutes after setup |
-| `-state-pwd-haryana` | 🛠 BUILDING | 0 / 2 (PR #9) | — | — | — | minutes after setup |
-| `-state-pwd-odisha` | 🛠 BUILDING | 0 / 4 (PR #9) | — | — | — | minutes after setup |
+| `-state-pwd-uttarakhand` | 🛠 BUILDING | 0 / 8 | 0 · 8 · 0 | — | — | after the stale runner jobs (class D is one 91 MB page) |
+| `-state-pwd-tripura` | 🛠 BUILDING | 0 / 2 | 2 failed (old code), retried | — | — | after the stale runner jobs |
+| `-state-pwd-arunachal` | 🛠 BUILDING | 0 / 8 | 8 failed (old code), retried | — | — | after the stale runner jobs |
+| `-state-pwd-haryana` | 🛠 BUILDING | 0 / 2 | 2 failed (old code), retried | — | — | after the stale runner jobs |
+| `-state-pwd-odisha` | 🛠 BUILDING | 0 / 4 | 4 failed (old code), retried | — | — | after the stale runner jobs |
 
 | State | Department | What is public | Status |
 |---|---|---|---|
@@ -74,8 +75,9 @@ new states on branch `c02-uttarakhand-odisha` (PR #9, open)
 - **Repo:** `~/contractor-registration` · **Run tests:** `~/.venvs/cr/bin/python -m pytest -q tests` (49 pass) · **Try one list:**
   `myproxy run ~/.venvs/cr/bin/python crawl.py --local statepwd '{"uk_class": "B"}'`, or without a proxy
   `~/.venvs/cr/bin/python crawl.py --local statepwd '{"columns": "arunachal-pwd-class-ii"}'`
-- **Next action:** merge PR #9, then Actions → setup (`gh workflow run setup.yml --ref main`).
-- **Waiting on:** CI on PR #9.
+- **Next action:** none. First attempts (10:09–10:50 CET) failed with `KeyError: 'list'`: two runner jobs had checked out `main`
+  at 08:54, before the merge. New jobs check out the new code.
+- **Waiting on:** the pool's next runner jobs.
 
 ## 4. What stands out
 1. **Uttarakhand publishes PANs.** The registration number of every granted application is `<class><office><category><month-year>:<PAN>`
@@ -180,7 +182,7 @@ where u.project = 'contractor-registration-state-pwd-uttarakhand' and u.data->>'
 - **To decide (trideep):** whether to fetch Uttarakhand's 36k certificate pages (one per contractor; adds little beyond the report).
 
 ## 11. Next steps
-**To do now:** 1. Merge PR #9 and run setup.
+**To do now:** 1. Check the five new projects' counts tomorrow against [2](#2-where-things-stand).
 **Later:** 2. OCR the WB PHED and Arunachal scans (with the family's OCR switch). 3. Recheck Karnataka `/crp/` and the 16 unreachable
 states monthly. 4. WRD / RWD / PHED registers in the states that answer. 5. Join state registers to PMGSY ([C06](report-C06.md)) by PAN
 (Uttarakhand) and by name and district (the rest).
