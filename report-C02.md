@@ -1,17 +1,23 @@
 # C02: State PWD / R&B / PHED registered contractors (8 states)
 
-**Status:** ⏳ RUNNING. **Gujarat** (9,421 contractors), **Maharashtra** (9,504) and **West Bengal PHED** (26 scanned vendor lists) are stored.
-Five more states are merged (PR #9) and queued; the pool's runner jobs that started before the merge ran old code, so they fill
-after those jobs end (setup re-run ~15:00 CET, or the daily setup at 02:30 CET): **Uttarakhand** (36,400 applications, 33,858 registered, firm PAN on each),
-**Tripura** (1,539), **Arunachal Pradesh** (1,276 plus 48 orders), **Haryana** (302) and **Odisha** (76). About 20 other states publish
-no list, keep it behind a login, or don't answer from India.
-**Updated:** 4 Nov 2026 09:50 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`);
+**Status:** ⏳ RUNNING. Seven states are stored, about 58,600 records in total:
+- **Uttarakhand** 36,409, with the firm PAN on 33,824;
+- **Gujarat** 9,421;
+- **Maharashtra** 9,504;
+- **Tripura** 1,488 of 1,539;
+- **Arunachal Pradesh** 1,276 contractors and 48 documents;
+- **Haryana** 297;
+- **Odisha** 76.
+
+**West Bengal PHED** has 26 scanned lists (OCR later). The rest of Tripura comes in on the next daily setup. About 20 other states
+publish no list, keep it behind a login, or do not answer from India.
+**Updated:** 4 Nov 2026 16:20 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`);
 new states `24d7efa` (PR #9, merged 4 Nov 10:01 CET)
 **Projects:** `contractor-registration-state-pwd` (Gujarat), `-state-pwd-maharashtra`, `-state-pwd-wb`, `-state-pwd-uttarakhand`,
 `-state-pwd-tripura`, `-state-pwd-arunachal`, `-state-pwd-haryana`, `-state-pwd-odisha`. All use adapter `statepwd`, 1 worker each;
 `proxy="IN"` except Maharashtra (CDN) and Arunachal, which answer from anywhere.
 **Data:** `select … from public.records where project like 'contractor-registration-state-pwd%'` · bucket `contractor-registration-state-pwd*/`
-**Previous report:** 2 Nov 2026 10:32 CET (Gujarat stored, Maharashtra built)
+**Previous report:** 4 Nov 2026 09:50 CET (five new states merged and queued)
 
 ---
 
@@ -23,22 +29,23 @@ new states `24d7efa` (PR #9, merged 4 Nov 10:01 CET)
 ---
 
 ## 1. TL;DR
-- **Stored (hub, 4 Nov):** Gujarat R&B **9,421**, Maharashtra PWD **9,504** (8,875 civil + 629 electrical, mostly registrations from
-  2013–2017), West Bengal PHED **26** approved-vendor lists (scans, saved in the bucket for OCR later).
-- **Built, tested and queued (PR #9 merged; about 39,600 more records):**
-  - **Uttarakhand PWD** runs an open online register: **36,400 applications** in classes A–D, with office, firm, address, category,
-    status, registration number and validity. **33,858 have registration granted**, and their registration number ends in the
-    **firm's full PAN**.
-  - **Tripura PWD (R&B):** 1,539 enlisted contractors in classes I–V and electrical, with tender limits; 806 rows link an
-    enlistment certificate PDF, all stored.
-  - **Arunachal Pradesh PWD:** 1,276 valid enlisted civil contractors (as on 30-09-2026), plus 48 linked documents, among them
-    **21 orders cancelling registrations**.
-  - **Haryana PWD:** 302 Class-1 contractors (list for 2014–2020). **Odisha Works:** 76 (45 civil in Super, Special, A and B
-    classes; 31 electrical).
+- **Stored (hub, 4 Nov 16:20 CET):**
+  - **Uttarakhand PWD** runs an open online register: **36,409 applications** in classes A–D, with office, firm, address,
+    category, status, registration number and validity. **33,874 have registration granted**. The registration number ends in
+    the **firm's full PAN** (33,824 records, **15,157 different PANs**).
+  - **Gujarat R&B** 9,421 and **Maharashtra PWD** 9,504 (8,875 civil + 629 electrical, mostly registrations from 2013–2017).
+  - **Tripura PWD (R&B):** 1,488 of 1,539 enlisted contractors in classes I–V and electrical, with tender limits.
+  - **Arunachal Pradesh PWD:** 1,276 valid enlisted civil contractors (as on 30-09-2026), and 48 linked documents. Among the
+    documents are **21 orders that cancel registrations**.
+  - **Haryana PWD:** 297 Class-1 contractors (list for 2014–2020; the PDF gives 5 firms twice). **Odisha Works:** 76.
+  - **West Bengal PHED:** 26 approved-vendor lists (scans, kept in the bucket for OCR later).
+- **PAN join:** **183** Uttarakhand firms are also in the PMGSY contractor scores ([C06](report-C06.md)), by full PAN.
+- **Tripura certificates are not reliable at the source.** The 806 "View PDF" links lead to only 287 different files; one
+  file is linked from 26 rows. The scanner's text layer is unreadable on 664 of 714 stored files, so they go to the OCR queue.
 - **No usable list:** Kerala, Himachal Pradesh and Rajasthan keep registration behind a contractor login; Karnataka's portal
   answers 502. PWD sites of 16 states (UP, Bihar, MP, Punjab, AP, Telangana, WB PWD and others) don't answer through any of the
   hub's Indian proxies.
-- **Next:** nothing to do: the items retry. If any is still failed tomorrow morning, check `last_error` in `public.queue`.
+- **Next:** nothing to do. The daily setup (02:30 CET) resets the two failed Tripura items; they store the last 51 rows.
 
 ## 2. Where things stand
 
@@ -47,22 +54,22 @@ new states `24d7efa` (PR #9, merged 4 Nov 10:01 CET)
 | `-state-pwd` (Gujarat) | ✅ COMPLETE | 4 / 4 | 0 · 0 · 0 | 9,421 | 0 | monthly refresh |
 | `-state-pwd-maharashtra` | ✅ COMPLETE | 4 / 4 | 0 · 0 · 0 | 9,504 | 4 | monthly refresh |
 | `-state-pwd-wb` (WB PHED) | ✅ COMPLETE | 2 / 2 | 0 · 0 · 0 | 26 lists | 2 | monthly; OCR later |
-| `-state-pwd-uttarakhand` | 🛠 BUILDING | 0 / 8 | 0 · 8 · 0 | — | — | after the stale runner jobs (class D is one 91 MB page) |
-| `-state-pwd-tripura` | 🛠 BUILDING | 0 / 2 | 2 failed (old code), retried | — | — | after the stale runner jobs |
-| `-state-pwd-arunachal` | 🛠 BUILDING | 0 / 8 | 8 failed (old code), retried | — | — | after the stale runner jobs |
-| `-state-pwd-haryana` | 🛠 BUILDING | 0 / 2 | 2 failed (old code), retried | — | — | after the stale runner jobs |
-| `-state-pwd-odisha` | 🛠 BUILDING | 0 / 4 | 4 failed (old code), retried | — | — | after the stale runner jobs |
+| `-state-pwd-uttarakhand` | ✅ COMPLETE | 8 / 8 | 0 · 0 · 0 | 36,409 | 36,409 | monthly refresh |
+| `-state-pwd-tripura` | ⏳ RUNNING | 0 / 2 | 2 · 0 · 0 | 1,488 | 1,488 | 5 Nov, after the daily setup resets the items |
+| `-state-pwd-arunachal` | ✅ COMPLETE | 5 / 8 | 3 · 0 · 0 | 1,324 | 1,324 | monthly refresh (the 3 failed items have done twins) |
+| `-state-pwd-haryana` | ✅ COMPLETE | 2 / 2 | 0 · 0 · 0 | 297 | 297 | monthly refresh |
+| `-state-pwd-odisha` | ✅ COMPLETE | 4 / 4 | 0 · 0 · 0 | 76 | 76 | monthly refresh |
 
 | State | Department | What is public | Status |
 |---|---|---|---|
 | Gujarat | Roads & Buildings | civil and electrical registers, PDF | ✅ stored |
 | Maharashtra | PWD | civil and electrical registers in the RTI manual, PDF (old) | ✅ stored |
 | West Bengal | PHED | approved vendor lists, 26 scanned PDFs | ✅ stored (OCR later) |
-| Uttarakhand | PWD | online register of every application, classes A–D, HTML report | 🛠 PR #9 |
-| Tripura | PWD (R&B) | enlisted contractors per class, HTML tables + certificate PDFs | 🛠 PR #9 |
-| Arunachal Pradesh | PWD | valid enlisted contractors, classes IAA–III, PDF; cancellation orders | 🛠 PR #9 |
-| Haryana | PWD (B&R) | Class-1 enlisted list 2014–2020, PDF (the search form needs a full name) | 🛠 PR #9 |
-| Odisha | Works | contractor ledger (Super / Special / A / B, electrical MV / HT) | 🛠 PR #9 |
+| Uttarakhand | PWD | online register of every application, classes A–D, HTML report | ✅ stored |
+| Tripura | PWD (R&B) | enlisted contractors per class, HTML tables + certificate PDFs | ⏳ 1,488 of 1,539 |
+| Arunachal Pradesh | PWD | valid enlisted contractors, classes IAA–III, PDF; cancellation orders | ✅ stored |
+| Haryana | PWD (B&R) | Class-1 enlisted list 2014–2020, PDF (the search form needs a full name) | ✅ stored |
+| Odisha | Works | contractor ledger (Super / Special / A / B, electrical MV / HT) | ✅ stored |
 | Rajasthan | PWD | nothing open; registration via SSO login | ⛔ login only |
 | Kerala | PWD | contractors' portal (`contractors.kerala.gov.in`): login only | ⛔ login only |
 | Himachal Pradesh | PWD | online enlistment (`online.hppwd.gov.in/enlistment`): login only | ⛔ login only |
@@ -72,26 +79,31 @@ new states `24d7efa` (PR #9, merged 4 Nov 10:01 CET)
 | UP, Bihar, MP, Punjab, AP, Telangana, WB PWD, Chhattisgarh, Jharkhand, Assam, J&K, Manipur, Nagaland, Sikkim, Puducherry, Haryana (old host) | PWD / RCD | sites don't answer through any of the hub's proxies (4 Nov) | ⚠️ unreachable |
 
 ## 3. Pick up here
-- **Repo:** `~/contractor-registration` · **Run tests:** `~/.venvs/cr/bin/python -m pytest -q tests` (49 pass) · **Try one list:**
+- **Repo:** `~/contractor-registration` · **Run tests:** `~/.venvs/cr/bin/python -m pytest -q tests` (50 pass) · **Try one list:**
   `myproxy run ~/.venvs/cr/bin/python crawl.py --local statepwd '{"uk_class": "B"}'`, or without a proxy
   `~/.venvs/cr/bin/python crawl.py --local statepwd '{"columns": "arunachal-pwd-class-ii"}'`
-- **Next action:** none. First attempts (10:09–10:50 CET) failed with `KeyError: 'list'`: two runner jobs had checked out `main`
-  at 08:54, before the merge. New jobs check out the new code.
-- **Waiting on:** the pool's next runner jobs.
+- **Next action:** none. The daily setup resets the two failed Tripura items.
+- **History:** the first attempts (4 Nov 10:09–12:08 CET) failed with `KeyError: 'list'`. Two runner jobs had checked out `main`
+  at 08:54, before the merge, and used all 40 attempts. The setup re-run at 15:10 CET reset the items; new jobs stored them.
+  Tripura's first try then failed on a hub error (502 on `upload-urls`), and its second try used up the runner's time budget.
+- **Waiting on:** the daily setup (5 Nov 02:30 CET).
 
 ## 4. What stands out
 1. **Uttarakhand publishes PANs.** The registration number of every granted application is `<class><office><category><month-year>:<PAN>`
-   (for example `B1006RD0822:` followed by the PAN). Of 33,858 granted registrations, 33,768 carry a PAN. *So what:* this is the
-   one state register that joins exactly to PMGSY ([C06](report-C06.md)) and to other PAN-keyed data.
-2. **Uttarakhand's register is mostly small contractors.** Class D holds 29,770 of 36,400 applications; class A has 1,944. About 6,000
+   (for example `B1006RD0822:` followed by the PAN). Of 33,874 granted registrations, 33,782 carry a valid PAN (15,151 different firms). *So what:* this is the
+   one state register that joins exactly to PMGSY ([C06](report-C06.md)) and to other PAN-keyed data: 183 firms match.
+2. **Uttarakhand's register is mostly small contractors.** Class D holds 29,777 of 36,409 applications; class A has 1,945. About 6,000
    class-D registrations run out in 2026.
 3. **One Uttarakhand application, many offices.** An application sent to several circles appears once per office (one class-D
    application is listed under 6 offices). Records keep one row per application with all its offices.
 4. **Arunachal publishes its cancellations.** The page links 21 office orders cancelling a contractor's registration (2021–2025) and
    8 orders extending one; most are scans. *So what:* a small state-level debarment list, beside CPWD's ([C01](report-C01.md)).
 5. **Tripura states each class's tender limit** ("Any amount" for class I, "up to ₹6 crore" for class II, ₹1–1.5 crore for class IV),
-   and 790 of its 1,539 rows are class V (services), mostly valid only until 2020.
-6. **Maharashtra's published register is old.** The PDFs went up in March 2025, but the validity dates are mostly 2013–2017.
+   and 789 of its 1,539 rows are class V (services), mostly valid only until 2020.
+6. **Tripura's certificate links point to the wrong files.** 806 rows link a certificate, but only 287 different files are linked.
+   For example, the row for enlistment 00852 links the file 00851.pdf, and 26 rows link that same file. *So what:* do not use a
+   Tripura certificate as proof for its row without a check of the number printed on it (after OCR).
+7. **Maharashtra's published register is old.** The PDFs went up in March 2025, but the validity dates are mostly 2013–2017.
 
 ## 5. The source
 - **Uttarakhand:** `registrationpwd.uk.gov.in` (ASP.NET). `Report/Contractor_Information.aspx?contractor=A|B|C|D` returns the whole
@@ -149,19 +161,22 @@ new states `24d7efa` (PR #9, merged 4 Nov 10:01 CET)
 -- Uttarakhand registrations granted, by class and category
 select data->>'class', data->>'category', count(*) from public.records
 where project = 'contractor-registration-state-pwd-uttarakhand' and data->>'status' = 'Registration Granted' group by 1, 2 order by 1, 3 desc;
--- Uttarakhand firms that are also PMGSY contractors (PMGSY masks the PAN: first five and last character)
+-- Uttarakhand firms that are also PMGSY contractors (the PMGSY scores give the full PAN; 183 firms on 4 Nov)
 select u.data->>'company', p.data->>'company', p.data->>'state' from public.records u
 join public.records p on p.project = 'contractor-registration-pmgsy-contractors' and p.data->>'kind' = 'contractor_kpi'
  and p.data->>'pan' = u.data->>'pan'
-where u.project = 'contractor-registration-state-pwd-uttarakhand' and u.data->>'pan' <> '';
+where u.project = 'contractor-registration-state-pwd-uttarakhand' and u.data->>'pan' ~ '^[A-Z]{5}[0-9]{4}[A-Z]$';
 ```
 
 ## 8. Verification
-- Tests: 49 passed, with fixtures for every format (hand-made names in the new ones).
+- Tests: 50 passed, with fixtures for every format (hand-made names in the new ones).
+- Pool runs (4 Nov, after 15:10 CET): Uttarakhand 36,409 (per class 1,945 / 816 / 3,871 / 29,777), Arunachal 1,276 + 48, Haryana
+  297 ids from 302 rows (the PDF lists serials 11/63, 28/48, 141/147, 202/219 and 233/246 with the same text), Odisha 76, Tripura 1,488.
 - scrape-check through an Indian proxy: Uttarakhand class A, 1,944 records, the same ids on rerun.
 - Local runs (4 Nov): Uttarakhand B 816, Odisha 45 + 31, Arunachal class II 410 and 48 documents (9 links dead), Haryana 302 (serials
   1–302 contiguous), Tripura 1,539 rows.
-- Cross-checks: Uttarakhand granted counts per class equal the site's dashboard (1,681 / 678 / 3,481 / 28,018); Arunachal serials run
+- Cross-checks: Uttarakhand granted counts per class equal the site's dashboard (1,681 / 678 / 3,481 / 28,018 in the morning;
+  28,034 in class D in the afternoon); Arunachal serials run
   without gaps in each class (I: 1–8, 1–8, 1–179; II: 1–410; III: 1–671), and every row has an enlistment date and validity.
 - **Not checked:** Tripura's class V rows against anything (their validity dates are mostly 2020); Maharashtra beyond the first pages.
 
@@ -170,10 +185,13 @@ where u.project = 'contractor-registration-state-pwd-uttarakhand' and u.data->>'
 | # | Issue | Size | Impact / what to do |
 |---|---|---:|---|
 | 1 | **States without an open list** (at the source) | ~20 states | Login portals or no answer from India; recheck the unreachable ones monthly. |
-| 2 | **Scans not read** (by decision, OCR later) | 26 WB lists, ~40 Arunachal orders / old lists | Stored in the bucket under `ocr-needed/`. |
+| 2 | **Scans not read** (by decision, OCR later) | 26 WB lists, 12 Arunachal files, 236 Tripura certificates | In the bucket; queued in `queues/ocr.json.gz` for the OCR project. |
 | 3 | Maharashtra list is old (at the source) | 9,504 rows | Historical; the current one is behind e-registration. |
 | 4 | Haryana list ends in 2020 and gives one text per entry (at the source) | 302 | Firm and address are not split. |
-| 5 | Uttarakhand granted rows without a PAN (at the source) | 90 | Registration number kept as is. |
+| 5 | Uttarakhand granted rows without a PAN (at the source) | 92 | Registration number kept as is. |
+| 7 | **Tripura certificate links point to other rows' files** (at the source) | 806 links, 287 files | Check the number on the certificate after OCR. |
+| 8 | Tripura certificates carry an unreadable scanner text layer (at the source) | 664 of 714 records | Now detected (`common.readable`) and queued for OCR. |
+| 9 | Tripura rows not stored yet (runner time budget) | 51 of 1,539 | The daily setup resets the items. |
 | 6 | Arunachal links that are dead (at the source) | 9 of 48 | 404; listed as download failures. |
 
 ## 10. Risks and open decisions
@@ -182,8 +200,8 @@ where u.project = 'contractor-registration-state-pwd-uttarakhand' and u.data->>'
 - **To decide (trideep):** whether to fetch Uttarakhand's 36k certificate pages (one per contractor; adds little beyond the report).
 
 ## 11. Next steps
-**To do now:** 1. Check the five new projects' counts tomorrow against [2](#2-where-things-stand).
-**Later:** 2. OCR the WB PHED and Arunachal scans (with the family's OCR switch). 3. Recheck Karnataka `/crp/` and the 16 unreachable
+**To do now:** 1. Check on 5 Nov that Tripura has 1,539 records.
+**Later:** 2. OCR the WB PHED, Arunachal and Tripura scans (the `contractor-registration-ocr` project, when OCR is turned on). 3. Recheck Karnataka `/crp/` and the 16 unreachable
 states monthly. 4. WRD / RWD / PHED registers in the states that answer. 5. Join state registers to PMGSY ([C06](report-C06.md)) by PAN
 (Uttarakhand) and by name and district (the rest).
 **Housekeeping:** none.

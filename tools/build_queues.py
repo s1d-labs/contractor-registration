@@ -4,7 +4,8 @@ queues/ and run the setup workflow:
     python tools/build_queues.py            # psql connection from the environment (PGHOST etc.), default dbname scrape_hub
 
 queues/ocr.json.gz        OCR queue items: every stored scan (needs_ocr) not yet read by the contractor-registration-ocr project,
-                          in batches of about PAGES pages. Keys hash their files, so building again only adds the new batches.
+                          in batches of about PAGES pages. State lists' files are checked again here with common.needs_ocr, so
+                          PDFs stored before 4 Nov 2026 with an unreadable text layer (Tripura certificates) count as scans. Keys hash their files, so building again only adds the new batches.
 queues/morth_known.txt.gz MoRTH record ids collected so far: the weekly MoRTH refresh items skip them.
 queues/nhai_refetch.json.gz NHAI archive documents stored empty in the first pass (2,789 on 2 Nov 2026), DOCS a queue item.
 """
@@ -16,7 +17,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from adapters.common import sha1  # noqa: E402
+from adapters.common import needs_ocr, sha1  # noqa: E402
 from adapters.ocr import MAX_PAGES, record_id  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "queues"
@@ -42,6 +43,16 @@ select json_build_object('project', project, 'path', s->>'path', 'pages', max((s
 from s where s->>'path' is not null group by project, s->>'path' order by project, s->>'path'
 """
 
+STATE_FILES = f"""
+with s as (
+  select project, record_id, coalesce(data->'file', data->'certificate') s from public.records
+   where project like '{F}-state-pwd%' and coalesce(data->'file', data->'certificate') is not null
+)
+select json_build_object('project', project, 'path', s->>'path', 'pages', max((s->>'pages')::int),
+                         'records', (array_agg(distinct record_id))[1:5], 'ocr', bool_or((s->>'ocr')::bool),
+                         'needs_ocr', bool_or((s->>'needs_ocr')::bool), 'text', max(s->>'text'))
+from s where s->>'path' like '%.pdf' group by project, s->>'path' order by project, s->>'path'
+"""
 
 EMPTY = f"""
 select json_build_object('endpoint', r.data->>'endpoint', 'tender', r.data->>'id', 'url', d->>'url')
@@ -73,6 +84,10 @@ def main():
     OUT.mkdir(exist_ok=True)
     done = set(psql(f"select record_id from public.records where project = '{F}-ocr'"))
     scans = [json.loads(line) for line in psql(SCANS)]
+    for f in map(json.loads, psql(STATE_FILES)):
+        if f.pop("needs_ocr") or needs_ocr(f.pop("text") or "", f["pages"] or 0):
+            f.pop("text", None)
+            scans.append(f)
     todo = [s for s in scans if not s["ocr"] and record_id(s["project"], s["path"]) not in done]
     old = OUT / "ocr.json.gz"
     items = json.loads(gzip.decompress(old.read_bytes())) if old.exists() else []
