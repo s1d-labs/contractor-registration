@@ -433,3 +433,81 @@ def test_pmgsy_contractor_kpi_scores():
     assert len(rows) == 4 and rows[0]["company"] == "M/S NIKUMBH BHARDWAZ CONSTRUCTION"
     assert (rows[0]["construction"], rows[0]["mobilization"], rows[0]["quality"], rows[0]["score"]) == (32.0, 30.0, 25.0, 87.0)
     assert len(rows[0]["pan"]) == 10 and pmgsy.parse_kpi(None) == []
+
+
+def test_uttarakhand_pwd_applications():
+    rows = statepwd.parse_uk((PAGES / "ukpwd_contractors.html").read_text())
+    assert [r["application_no"] for r in rows] == ["69424", "53624", "107668"]
+    first = rows[0]
+    assert first["registration_no"] == "B1006ME1223" and first["pan"] == "AAAAA1111A"
+    assert first["class"] == "B" and first["category"] == "Mechanical" and first["status"] == "Registration Granted"
+    assert first["valid_upto"] == "30 Jun 2026" and first["offices"] == ["CE-Dehradun"]
+    assert rows[1]["company"] == "Sample & Sons" and rows[1]["pan"] == "" and rows[1]["registration_no"] == ""
+    assert rows[2]["offices"] == ["CE-Tehri", "CE-Pauri"]          # one application sent to two offices
+    assert statepwd.parse_uk("<html>signed out</html>") == []
+
+
+def test_odisha_works_ledger():
+    rows, more = statepwd.parse_ledger((PAGES / "odisha_ledger.html").read_text())
+    assert more
+    assert rows[0] == {"sr": "1", "company": "M/s Example Infra Pvt. Ltd.", "address": "At- Test Sahi; Dist: Cuttack, Odisha"}
+    assert rows[1]["company"] == "Sample Constructions & Co." and rows[1]["address"] == "Plot 4, Unit-2; Bhubaneswar"
+    assert statepwd.parse_ledger("<table><tbody></tbody></table>") == ([], False)
+
+
+def test_tripura_enlisted_tables():
+    rows = statepwd.parse_accordion_tables((PAGES / "tripura_enlisted.html").read_text())
+    assert len(rows) == 2
+    a, b = rows
+    assert a["section"] == "Enlistment of Contractors Class-I" and a["enlistment_no"] == "PWD/TRIP/C-I/00099"
+    assert (a["valid_from"], a["valid_upto"], a["qualified_upto"]) == ("2021-02-08", "2026-02-07", "Any amount")
+    assert a["certificate_url"].endswith("/CLASS-I/00099.pdf") and a["father_or_partner"] == "Lt.Sample Das"
+    assert b["section"] == "Enlistment of Contractors Class-V" and b["valid_from"] == "" and b["valid_upto"] == "2020-12-08"
+    assert b["qualified_upto"] == "Upto Rs. 40 Lac" and b["certificate_url"] == ""
+
+
+def _w(x, y, text):
+    return (x, y, x + 5 * len(text), text)
+
+
+def test_arunachal_column_list():
+    head = [_w(88, 679, "Sl"), _w(134, 679, "Name"), _w(216, 679, "Address"), _w(332, 679, "Enlistment"),
+            _w(435, 679, "Validity"), _w(511, 679, "Remarks"), _w(435, 669, "Enlistment")]
+    title = [_w(246, 726, "Class"), _w(270, 726, "II"), _w(282, 726, "(Civil)"), _w(320, 726, "Category"), _w(362, 726, "as"),
+             _w(374, 726, "on"), _w(388, 726, "30/09/2026.")]
+    numbers = [_w(97, 655, "1"), _w(158, 655, "2"), _w(267, 655, "3"), _w(372, 655, "4"), _w(454, 655, "5"), _w(526, 655, "6")]
+    page1 = title + head + numbers + [
+        _w(97, 640, "1"), _w(113, 640, "M/s"), _w(132, 640, "Example"), _w(210, 640, "Shri"), _w(232, 640, "Test,"),
+        _w(331, 640, "No.CEAP(D&P)/"), _w(441, 640, "5th"), _w(460, 640, "June'"), _w(490, 640, "2029"),
+        _w(113, 629, "Builders"), _w(210, 629, "Itanagar"), _w(331, 629, "PLG-48/2008-09/II/03"),
+        _w(331, 618, "Dated"), _w(360, 618, "6th"), _w(378, 618, "June"), _w(400, 618, "2008.")]
+    page2 = head + [
+        _w(210, 650, "Pin"), _w(230, 650, "791111."),                       # continues row 1 from the previous page
+        _w(97, 630, "2"), _w(113, 630, "M/s"), _w(132, 630, "Demo"), _w(210, 630, "Naharlagun"),
+        _w(331, 630, "No."), _w(350, 630, "CEAP(CSQ)/W-48/II/466."), _w(331, 619, "Dtd:"), _w(355, 619, "7th"), _w(372, 619, "May'"),
+        _w(397, 619, "2026"), _w(441, 630, "5th"), _w(460, 630, "May'"), _w(490, 630, "2031"), _w(511, 630, "Cancelled"),
+        _w(97, 590, "NB:"), _w(120, 590, "1)"), _w(140, 590, "Discrepancies")]
+    meta, rows = statepwd.parse_columns([page1, page2])
+    assert meta["as_on"] == "30/09/2026" and len(rows) == 2
+    a, b = rows
+    assert (a["sr"], a["class"], a["company"]) == ("1", "II", "M/s Example Builders")
+    assert a["address"] == "Shri Test, Itanagar Pin 791111."
+    assert a["enlistment_no"] == "No.CEAP(D&P)/ PLG-48/2008-09/II/03" and a["enlistment_date"] == "6th June 2008"
+    assert a["valid_upto"] == "5th June' 2029" and a["remarks"] == ""
+    assert b["enlistment_no"] == "No. CEAP(CSQ)/W-48/II/466." and b["enlistment_date"] == "7th May' 2026"
+    assert b["remarks"] == "Cancelled" and "Discrepancies" not in b["company"]
+
+
+def test_numbered_list_and_pdf_links():
+    text = "LIST OF ENLISTED CONTRATOR AS CLASS-1\n1. Example Construction Ltd, Sector 16, Hisar.\n2. Sample Co,\nVillage Test, Rohtak.\n3.Demo Infra, Plot 4, Jind\n"
+    rows = statepwd.parse_numbered(text)
+    assert [r["sr"] for r in rows] == ["1", "2", "3"]
+    assert rows[1]["entry"] == "Sample Co, Village Test, Rohtak." and rows[2]["entry"] == "Demo Infra, Plot 4, Jind"
+    page = ('<a href="pdf/31072025/cancellation_x.pdf">Office Order for Cancellation of Contractor Registration of M/S X</a>'
+            '<a href="pdf/BE2019-20.pdf">Budget Estimate 19-20</a>'
+            '<a href="pdf/06102026/Class-II.pdf">List of valid Enlisted Re-validated Contractors Firms Class-II</a>'
+            '<a href="pdf/31072025/cancellation_x.pdf">Office Order for Cancellation of Contractor Registration of M/S X</a>')
+    links = statepwd.parse_pdf_links(page, "https://arunachalpwd.org/contractors.php")
+    assert [(l["doc_type"], l["url"]) for l in links] == [
+        ("cancellation", "https://arunachalpwd.org/pdf/31072025/cancellation_x.pdf"),
+        ("list", "https://arunachalpwd.org/pdf/06102026/Class-II.pdf")]

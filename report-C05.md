@@ -1,14 +1,14 @@
 # C05: NHAI / MoRTH tenders, empanelment, ratings and debarment orders (nhai.gov.in, morth.gov.in)
 
-**Status:** ✅ COMPLETE. **10,899** NHAI tenders (2018 to today, live list daily), 243 NHAI page records, and **6,934** MoRTH documents are stored.
-2,789 documents stored empty in the first pass are queued for re-fetch in PR #7.
-**Updated:** 2 Nov 2026 10:32 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@685c82a` (`main`);
-re-fetch on `proxy-check-nhai-refetch` @ `5d02ff5` (PR #7, open)
+**Status:** ✅ COMPLETE. **10,903** NHAI tenders (10,648 archive 2018–2025 + 255 live, daily), 243 NHAI page records, and **6,934** MoRTH
+documents are stored. The re-fetch of the 2,789 archive documents stored empty (1,551 distinct links) ran on 2 Nov: **every one is
+still empty at NHAI**, so this is a gap at the source.
+**Updated:** 4 Nov 2026 09:55 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`)
 **Projects:** `-nhai-tenders` (daily), `-nhai-tender-archive` (5 workers), `-nhai-pages` (weekly), `-morth-documents` (weekly).
 All run on GitHub runners, direct, with no proxy (all names start with `contractor-registration`).
 **Data:** `select … from public.records where project like 'contractor-registration-nhai-%'` / `'contractor-registration-morth-documents'` ·
 bucket `contractor-registration-nhai-tender-archive/` etc. · [DATA.md](DATA.md)
-**Previous report:** first report
+**Previous report:** 2 Nov 2026 10:32 CET (re-fetch queued)
 
 ---
 
@@ -24,15 +24,17 @@ bucket `contractor-registration-nhai-tender-archive/` etc. · [DATA.md](DATA.md)
   The ratings of DPR / AE-IE consultants and contractors are stored, along with **101** debarment rows.
 - **MoRTH:** 6,934 orders, notices, circulars, gazettes and guidelines, including **38** debarment / blacklisting orders.
 - **No captcha met:** both sites' JSON APIs are open. The planned-sources page's "captcha wall" does not apply to them.
-- **Problem found and being fixed:** 2,789 archive documents (in 1,426 tenders) were stored as empty files. PR #7 queues them again (58 items).
+- **Empty documents are empty at NHAI:** 2,789 archive documents (in 1,426 tenders, 1,551 distinct links) were stored as empty files in
+  the first pass. All 58 re-fetch items ran (2 Nov, 18:55 CET) and each link still answered HTTP 200 with no body, so no record was
+  added. They are listed as download failures; nothing more to do unless NHAI re-uploads them.
 - About 48 GiB of documents are in the bucket (from the 1 Nov [DATA.md](DATA.md) report, not re-measured).
 
 ## 2. Where things stand
 
 | Project | State | Items done / total | Failed · pending · running | Records stored | Pace (24 h) | ETA |
 |---|---|---:|---|---:|---:|---|
-| `-nhai-tenders` | ✅ COMPLETE | 22 / 22 | 0 · 0 · 0 | 251 | 16 | daily refresh |
-| `-nhai-tender-archive` | ✅ COMPLETE | 223 / 223 | 0 · 0 · 0 | 10,648 | 0 | + 58 re-fetch items after PR #7 |
+| `-nhai-tenders` | ✅ COMPLETE | 38 / 38 | 0 · 0 · 0 | 255 | 16 | daily refresh |
+| `-nhai-tender-archive` | ✅ COMPLETE | 281 / 281 | 0 · 0 · 0 | 10,648 | 58 | done (incl. 58 re-fetch items; 0 documents came back) |
 | `-nhai-pages` | ✅ COMPLETE | 24 / 24 | 0 · 0 · 0 | 243 | 16 | weekly refresh |
 | `-morth-documents` | ✅ COMPLETE | 90 / 90 | 0 · 0 · 0 | 6,934 | 17 | weekly refresh (new documents only) |
 
@@ -42,13 +44,13 @@ bucket `contractor-registration-nhai-tender-archive/` etc. · [DATA.md](DATA.md)
 ## 3. Pick up here
 - **Repo:** `~/contractor-registration` · **Run tests:** `~/.venvs/cr/bin/python -m pytest -q tests` · **Try one item:** these sites
   refuse the team box and some proxies, so test in CI (`check` workflow) or on a GitHub runner.
-- **Next action:** merge PR #7. The next setup seeds the 58 `refetch-…` items on `-nhai-tender-archive`.
-- **Waiting on:** trideep (merge).
+- **Next action:** none; the daily and weekly refreshes run on their own.
+- **Waiting on:** nothing.
 
 ## 4. What stands out
-1. **Empty files were stored in the first pass.** 2,789 document links answered HTTP 200 with an empty body: 2,066 of them in the
-   2020 archive (`tenderarchivetwe`), 425 in 2019, 297 in 2018, and 1 in 2022. Downloads now refuse empty bodies. The re-fetch
-   records each document that now loads as `refetch-<url hash>`, linked to its tender.
+1. **NHAI serves empty files for part of its archive.** 2,789 document links answer HTTP 200 with an empty body: 2,066 of them in the
+   2020 archive (`tenderarchivetwe`), 425 in 2019, 297 in 2018, and 1 in 2022. A second try two days later gave the same for all
+   1,551 distinct links. Downloads now refuse empty bodies, so they show as download failures, not as stored files.
 2. **Only 22% of NHAI's archive tender numbers appear on CPPP** (846 of 3,824 matched `gepnic-etenders`; [DATA.md](DATA.md), 1 Nov).
    *So what:* this archive is the main record of NHAI's tenders, not a duplicate.
 3. **323 empanelment calls** among the tenders: requests for empanelment of consultants, contractors and fee collection agencies,
@@ -73,7 +75,7 @@ bucket `contractor-registration-nhai-tender-archive/` etc. · [DATA.md](DATA.md)
 | MoRTH documents | `backend/api/orders-and-notices` and 7 more slugs | 6,972 documents listed |
 
 ## 6. How it is collected
-- **Code:** `adapters/nhai.py` (`run_tenders`, `run_page`, `run_commontype`, and `run_refetch` in PR #7), `adapters/morth.py` (pages of
+- **Code:** `adapters/nhai.py` (`run_tenders`, `run_page`, `run_commontype`, and `run_refetch`), `adapters/morth.py` (pages of
   100 documents; `new_only` skips the ids in `queues/morth_known.txt.gz`), `adapters/common.py` (downloads with `seen/` markers).
 - **Queue:** archive `<endpoint>-p<k>` (223); live `tenders-<YYYYMMDD>-p<k>` daily; pages `-<YYYY>w<WW>` weekly; re-fetch
   `refetch-<endpoint>-<hash>` (58 items of up to 50 documents, from `tools/build_queues.py`).
@@ -97,22 +99,23 @@ where project = 'contractor-registration-morth-documents' and data->>'group' ili
   both sites on every push (green, 2 Nov).
 - Cross-checks: the archive items reported 10,924 tenders and 10,648 distinct ids are stored, so 276 tenders appear in two archive
   years (not checked one by one). MoRTH: 6,934 of the 6,972 documents its pages list are stored; the other 38 are not explained yet.
-- **Not checked:** whether the 2,789 empty links answer now. The box's proxy is refused by nhai.gov.in, so the pool's re-fetch will tell.
+- Re-fetch (2 Nov): 58 / 58 items done, 0 documents loaded, 1,551 download failures (empty body).
+- **Not checked:** the 276 tenders listed in two archive years one by one.
 
 ## 9. Known gaps and quality issues
 
 | # | Issue | Size | Impact / what to do |
 |---|---|---:|---|
-| 1 | **Documents stored empty** (missed by us) | 2,789 | PR #7 re-fetches them; the guard prevents new ones. |
+| 1 | **Documents empty at NHAI** (at the source; re-fetched 2 Nov) | 2,789 refs / 1,551 links | Nothing to fetch; recheck only if NHAI re-uploads. |
 | 2 | Documents that did not load (404 at the source, mostly) | 552 NHAI, 20 MoRTH | Listed on the dashboard. |
 | 3 | Files over 80 MB not stored (by rule) | 17 | Links kept. |
 | 4 | Scans not OCR'd (by decision) | 16,205 scans | `ocr-needed/`; OCR later. |
 
 ## 10. Risks and open decisions
-- **Risks:** none for running now. The re-fetch writes new records and leaves the tender records as they are.
+- **Risks:** none for running now.
 - **To decide:** when to turn on OCR (`OCR = True` in `family.py`).
 
 ## 11. Next steps
-**To do now:** 1. Merge PR #7. 2. After setup, check `select count(*) from public.records where project = 'contractor-registration-nhai-tender-archive' and record_id like 'refetch-%'`.
-**Later:** 3. OCR the debarment scans. 4. Match tenders to awards on CPPP (`gepnic-etenders`).
-**Housekeeping:** the hub's health checks (ask Sarthak to route India-only checks through a proxy).
+**To do now:** none.
+**Later:** 1. OCR the debarment scans. 2. Match tenders to awards on CPPP (`gepnic-etenders`).
+**Housekeeping:** none (the hub's health checks go through proxies since 3 Nov).
