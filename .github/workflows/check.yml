@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: |
@@ -83,7 +83,7 @@ jobs:
         run: >
           scrape-check --project contractor-registration-ci-ocr --task crawl --env ADAPTER=ocr --timeout 900
           --item '{"key": "morth-debarment-scan", "payload": {"source": "contractor-registration-ci-ocr", "files": [{"path": "ocr-needed/ci/Debarment-NHAI-ROM-132.pdf", "pages": 1, "url": "https://morth.gov.in/backend/documents/uploaded/1755605683_Debarment-NHAI-ROM-132.pdf"}]}}'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: ${{ always() }}
         with:
           name: scrape-check
