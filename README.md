@@ -32,7 +32,7 @@ D03 (PSU ban and holiday lists) of india.s1d.me. The sites run on different plat
 | `rdso` | rdso.indianrailways.gov.in (proxy + India servers) | `-rdso-items` (monthly) | C04 |
 | `nhai`, `morth` | nhai.gov.in, morth.gov.in (JSON APIs) | `-nhai-tenders` (daily), `-nhai-tender-archive`, `-nhai-pages`, `-morth-documents` (weekly) | C05 |
 | `pmgsy` (+ `pmgsyreg`), `emarg` | pmgsy.dord.gov.in (SSRS reports, drill-through), emarg.gov.in (proxy) | `-pmgsy-contractors`, `-pmgsy-agreements`, `-pmgsy-corenetwork`, `-pmgsy-completed`, `-pmgsy-maintenance`, `-emarg-roads` | C06 |
-| `banlists` | PSU ban / holiday lists: BHEL, Oil India, OPaL, NHPC, NDDB; BPCL (proxy) | `-banlists`, `-banlists-bpcl` (weekly) | D03 |
+| `banlists` | PSU ban / holiday lists: BHEL, Oil India, OPaL, NHPC, NDDB; BPCL and HPCL (proxy) | `-banlists`, `-banlists-in` (weekly) | D03 |
 | `ocr` | the family's own bucket: scans read back with tesseract | `-ocr` (off: `OCR = False` in `family.py`) | all |
 
 Documents go to the bucket under `<project>/pdf/` (with the text beside each as `.pdf.txt`), `ocr-needed/` (scans, for a later

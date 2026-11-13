@@ -28,15 +28,18 @@ LISTS = {
              "pdf": r"List_of_vendors_put_on_holiday[^\"'<>]*\.pdf[^\"'<>]*"},
     "nddb": {"org": "NDDB", "page": "https://www.nddb.coop/resources/tenders/blackfirms", "kind": "blacklisted"},
     "nhpc": {"org": "NHPC", "page": "https://www.nhpcindia.com/welcome/language/en/firmbanlist", "kind": "banned"},
-    # bharatpetroleum.in answers 403 outside India: these two are in the proxied project
+    # bharatpetroleum.in answers 403 outside India: these two are in the proxied project (-banlists-in)
     "bpcl-holiday": {"org": "BPCL", "page": "https://www.bharatpetroleum.in/bharat-petroleum-for/business-associates/vendors.aspx",
                      "kind": "holiday", "pdf": r"bpcl-holiday-listing[^\"'<>]*\.pdf"},
     "bpcl-show-cause": {"org": "BPCL", "page": "https://www.bharatpetroleum.in/bharat-petroleum-for/business-associates/vendors.aspx",
                         "kind": "show_cause", "pdf": r"scn-list[^\"'<>]*\.pdf"},
+    # hindustanpetroleum.com also answers 403 outside India; its procurement page links the current list as holiday_list.pdf
+    "hpcl-holiday": {"org": "HPCL", "page": "https://www.hindustanpetroleum.com/purchase-procurement", "kind": "holiday",
+                     "pdf": r"/holiday_list[^\"'<>]*\.pdf"},
 }
 
 SERIAL = re.compile(r"^\d{1,4}\s*[.)]?$")
-FIRST_HEAD = re.compile(r"^(s\.?\s*no|sl\.?|sr\.?|serial)", re.I)
+FIRST_HEAD = re.compile(r"^(s\.?\s*no|s[li]\.?\s*no|sl\.?|sr\.?|serial)", re.I)   # "SI. No." (capital I) too
 PAN = re.compile(r"\b([A-Z]{5}[0-9]{4}[A-Z])\b")
 DITTO = re.compile(r"^-?\s*do\s*-?$", re.I)
 # common field <- header words (first match wins, in this order)
@@ -102,7 +105,7 @@ def table_rows(tables):
             if head and FIRST_HEAD.match(cells[0]) and len(filled) > 1:   # "Sr. No. | Banned as per instruction from Govt."
                 section = " ".join(filled[1:])[:120]
                 continue
-            if head and sub and not cells[0] and len(cells) == len(head) and all(len(c) < 20 for c in filled):
+            if head and sub and not cells[0] and len(filled) > 1 and len(cells) == len(head) and all(len(c) < 20 for c in filled):
                 head = [f"{h} {c}".strip() if c else h for h, c in zip(head, cells)]   # a second header line (From / To)
                 full[base] = list(head)
                 sub = False

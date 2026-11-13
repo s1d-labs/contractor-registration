@@ -351,15 +351,15 @@ PROJECTS = [
                   for sfx in ("", f"-{WEEK}") for name in ("bhel-debarred", "bhel-banned", "oil-india", "opal", "nddb", "nhpc")],
     },
     {
-        # BPCL's holiday list and its list of vendors served a show-cause notice (holiday listing proposed): bharatpetroleum.in
-        # answers 403 outside India.
-        "name": f"{FAMILY}-banlists-bpcl",
-        "title": "Vendors on BPCL's holiday list, and vendors served a show-cause notice",
+        # BPCL's holiday list, its list of vendors served a show-cause notice (holiday listing proposed), and HPCL's holiday list:
+        # bharatpetroleum.in and hindustanpetroleum.com answer 403 outside India.
+        "name": f"{FAMILY}-banlists-in",
+        "title": "Vendors on BPCL's and HPCL's holiday lists, and vendors BPCL served a show-cause notice",
         "task": "crawl", "target": "www.bharatpetroleum.in", "env": _env("banlists", "https://www.bharatpetroleum.in", ocr=False),
         "proxy": "IN", "max_workers": 1,
         "unit_label": "list", "record_label": "firm",
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
-                  for sfx in ("", f"-{WEEK}") for name in ("bpcl-holiday", "bpcl-show-cause")],
+                  for sfx in ("", f"-{WEEK}") for name in ("bpcl-holiday", "bpcl-show-cause", "hpcl-holiday")],
     },
 ] + ([{
     # reads the scans stored above (ocr-needed/) back from the bucket and stores their text; no site is contacted

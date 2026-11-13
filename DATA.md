@@ -100,7 +100,7 @@ characters of `text`.
 | `contractor-registration-pmgsy-maintenance` | PMGSY maintenance (DLP) per state and financial year (`year`): block, package, road, connectivity, lengths, completion date, maintenance cost, in liability, the year's and total spending | `maintenance-<state code>-<hash of year and fields>` |
 | `contractor-registration-emarg-roads` | eMARG roads under maintenance per state, district and block (eMARG road id and name; the details need a captcha and are not fetched) | `emarg-<roadDetailsId>` |
 | `contractor-registration-banlists` | Firms banned, debarred or put on holiday by BHEL (two lists), Oil India, OPaL, NHPC and NDDB (planned source D03): firm, address, vendor code, PAN where printed, from / to dates, period, reason, order reference, and every column of the list in `columns` | `<list>-<hash of firm, from date, order ref>` |
-| `contractor-registration-banlists-bpcl` | BPCL's holiday list and its list of vendors served a show-cause notice (holiday listing proposed), same fields | same |
+| `contractor-registration-banlists-in` | BPCL's holiday list, its list of vendors served a show-cause notice (holiday listing proposed), and HPCL's holiday list; same fields | same |
 | `contractor-registration-state-pwd` | Gujarat R&B registered civil (8,113 rows, 14-09-2026) and electrical (1,334, 31-07-2026) contractors | `<list>-<hash of company, address, division, class, dates>` |
 | `contractor-registration-rdso-items` | RDSO items with fewer than 3 (25) / 5 (107) sources and with no Indian source (1), as on 03.06.2024 | `<list>-<item id>-<sub-item id or 0>` |
 | `contractor-registration-ocr` | OCR text of every scan stored before 2026-11-01 (16,081 files) | `<source project minus family>-<hash of source, path>` |
