@@ -627,3 +627,10 @@ def test_banlists_html_merged_header_cells_and_rows_without_serials():
               <tr><td></td><td>Zeta Labs</td><td>NOSQ</td><td>01.01.2029</td></tr></table>"""
     recs = [r for _, r in banlists.to_records("rmsc-company", banlists.table_rows(banlists.html_tables(rmsc)), "test")]
     assert [(r["sr"], r["firm"], r["upto"]) for r in recs] == [("1", "Epsilon Remedies", "06.11.2030"), ("2", "Zeta Labs", "01.01.2029")]
+
+
+def test_banlists_item_columns_are_not_the_firm():
+    cols = {"Item Name": "Bisacodyl tablets", "Name of Firm": "Eta Pharma", "Debarred Upto": "01.01.2029"}
+    f = banlists.common_fields(cols)
+    assert f["item"] == "Bisacodyl tablets" and f["firm"] == "Eta Pharma" and f["upto"] == "01.01.2029"
+    assert banlists.common_fields({"COMPANY NAME": "Theta Labs", "PRODUCT NAME": "Cefixime"}) == {"firm": "Theta Labs", "item": "Cefixime"}

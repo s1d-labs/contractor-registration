@@ -201,7 +201,8 @@ PROJECTS = [
         "name": f"{FAMILY}-pmgsy-corenetwork",
         "title": "PMGSY core network road register per district: road number, name, route, length, from, to, habitations",
         "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
-        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers
+        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers (but the hub
+        # stored no geo setting that day: see DISCOVERY.md)
         "proxy": "IN", "geo": "IN", "max_workers": 2,
         "unit_label": "district", "record_label": "road x habitation",
         "items": [{"key": f"cn-{state:02d}-{district}", "payload": {"report": "corenetwork", "state": state,
@@ -215,7 +216,8 @@ PROJECTS = [
         "name": f"{FAMILY}-pmgsy-completed",
         "title": "PMGSY completed roads per district: package, road, sanction year, cost, value of work done, completion month",
         "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
-        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers
+        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers (but the hub
+        # stored no geo setting that day: see DISCOVERY.md)
         "proxy": "IN", "geo": "IN", "max_workers": 1,
         "unit_label": "district", "record_label": "road",
         "items": [{"key": f"done-{state:02d}-{district}{sfx}", "payload": {"report": "completed", "state": state,
@@ -229,7 +231,8 @@ PROJECTS = [
         "name": f"{FAMILY}-pmgsy-maintenance",
         "title": "PMGSY road maintenance per state and year: package, road, completion, maintenance cost and spending",
         "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
-        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers
+        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers (but the hub
+        # stored no geo setting that day: see DISCOVERY.md)
         "proxy": "IN", "geo": "IN", "max_workers": 1,
         "unit_label": "state x year", "record_label": "road",
         "items": [{"key": f"upkeep-{code:02d}-{year}", "payload": {"report": "maintenance", "state": code, "state_name": name, "year": year}}
@@ -345,11 +348,12 @@ PROJECTS = [
         # Planned sources D03 and D04: firms that public sector undertakings ban, debar or put "on holiday", and suppliers that
         # state medical services corporations blacklist (TNMSC, RMSC, GMSCL) (adapters/banlists.py). Each
         # list is a page on the organisation's site (a table, or a link to the current PDF); a new version every few weeks,
-        # so every list is read again each week. These sites answer from anywhere.
+        # so every list is read again each week. The PSU sites answer GitHub runners, but the medical corporations' sites do not
+        # (14 Nov 2026: "site did not answer" from an Azure runner, while a team box in Germany and the Indian proxies get them).
         "name": f"{FAMILY}-banlists",
         "title": "Firms banned, debarred or put on holiday by PSUs (BHEL, Oil India, OPaL, NHPC, NDDB) and state medical corporations",
         "task": "crawl", "target": "banlists", "env": _env("banlists", "https://www.bhel.com", ocr=False),
-        "max_workers": 1,
+        "proxy": "IN", "max_workers": 1,
         "unit_label": "list", "record_label": "firm",
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
                   for sfx in ("", f"-{WEEK}") for name in ("bhel-debarred", "bhel-banned", "oil-india", "opal", "nddb", "nhpc",

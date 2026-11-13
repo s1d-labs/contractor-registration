@@ -55,6 +55,7 @@ DITTO = re.compile(r"^-?\s*do\s*-?$", re.I)
 # common field <- header words (first match wins, in this order)
 FIELDS = [
     ("vendor_code", r"vendor code|\bcode\b|^pan\b|/\s*pan\b"),
+    ("item", r"\bitem\b|product|drug"),         # medical corporations: "Item Name", "Product Name", "Drug"
     ("firm", r"\bname\b"),                        # "Name & Address of the Vendor" is the firm (with its address)
     ("address", r"address|city"),                 # "Address of the Firm" is the address
     ("firm", r"firm|vendor|supplier|contractor\b|bidder"),

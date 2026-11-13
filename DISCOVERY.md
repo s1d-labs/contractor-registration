@@ -25,6 +25,11 @@ reports are newer.
 - **D04 (state medical corporations' blacklists), same adapter:** TNMSC `blacklisted/blacklisted.php` (11: drugs and equipment),
   RMSC company-wise 8 and product-wise 101, GMSCL `black-list-firm.htm` 10; all answer from Germany. KMSCL, BMSICL, MPPHSCL,
   TSMSIDC, CGMSC, OSMC: no list found on the home page (or no answer).
+- **First pool pass of the ban lists (14 Nov 03:50–04:20 IST):** the 9 D03 lists stored 456 records (as local). The 4 D04 lists
+  failed from a GitHub runner (Azure `52.159.229.163`, "site did not answer"); `-banlists` now borrows an Indian proxy too.
+- **The hub keeps no `geo` setting (14 Nov):** after setup with `geo="IN"` (PMGSY road register, RDSO), `projects.settings` has no
+  `geo` key for any project of any family, and the India servers ran only `civic-officials-india-direct`. RDSO ran on an India
+  server on 4 Nov. Probably a change in the hub's move to dev-vps-3; ask Sarthak. Until then `geo` does nothing here.
 - **C02 recheck (14 Nov, through a proxy):** MP PWD answers again (4 Nov: no answer), but shows no public list (registration
   is a login system). UP, Punjab, WB PWD, Assam and Maharashtra WRD still time out. Karnataka's home page answers.
 
