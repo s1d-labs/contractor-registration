@@ -521,3 +521,39 @@ def test_numbered_list_and_pdf_links():
     assert [(l["doc_type"], l["url"]) for l in links] == [
         ("cancellation", "https://arunachalpwd.org/pdf/31072025/cancellation_x.pdf"),
         ("list", "https://arunachalpwd.org/pdf/06102026/Class-II.pdf")]
+
+
+# --- PMGSY road register (pmgsyreg) and eMARG ----------------------------------------------------------------------------
+
+from adapters import emarg, pmgsyreg  # noqa: E402
+
+
+def test_pmgsyreg_core_network_roads_of_a_block():
+    text = (PAGES / "pmgsy_corenetwork_leaf.csv").read_text(encoding="utf-8")
+    rows = pmgsyreg.parse_leaf(text)
+    assert len(rows) == 5                                            # 4 roads; L059 serves two habitations (two rows)
+    assert rows[0]["plan_cn_road_number"] == "L031" and rows[0]["rd_from"] == "T05" and rows[0]["plan_rd_length"] == "7.000"
+    assert rows[1]["mast_hab_name"] == "DUNGDUNG." and rows[2]["mast_hab_name"] == "RALAP."
+    assert "textbox87" not in rows[0]                                # captions ("Sr.No.") are not data
+    assert pmgsyreg.heading_block(pmgsyreg.heading(text)) == "Khamdung"
+
+
+def test_pmgsyreg_completed_and_maintenance_leaves():
+    done = pmgsyreg.parse_leaf((PAGES / "pmgsy_completed_leaf.csv").read_text(encoding="utf-8"))
+    assert done[0]["ims_package_id"] == "BM0101" and done[0]["completion_date"] == "March-2001" and len(done) == 5
+    upkeep = pmgsyreg.parse_leaf((PAGES / "pmgsy_maintenance_leaf.csv").read_text(encoding="utf-8"))
+    assert upkeep[0]["ims_package_id"] == "02PKG3PHV2" and upkeep[0]["main_tot_exp"] == "38.10" and len(upkeep) == 4
+
+
+def test_pmgsyreg_drill_ids_in_row_order():
+    page = "".join(f"InvokeReportAction('Drillthrough','65iT0R0x{k}:0')" for k in (10, 2, 0, 1, 2))
+    assert pmgsyreg.drill_ids(page) == ["65iT0R0x0:0", "65iT0R0x1:0", "65iT0R0x2:0", "65iT0R0x10:0"]
+    assert pmgsyreg.leaf_name('"ExportUrlBase":"/Reserved.ReportViewerWebControl.axd?OpType=Export\\u0026FileName=RWCN_LVLReport\\u0026Format="') == "RWCN_LVLReport"
+
+
+def test_emarg_road_list():
+    roads = emarg.first_list(load("emarg_roads.json"))
+    rec = emarg.road_record(roads[0], {"stateId": 7, "stateName": "Chhattisgarh"}, {"districtId": 622, "districtName": "Balod"},
+                            {"blockId": 6990, "blockName": "Balod"})
+    assert rec["road_details_id"] == 14124 and rec["road_name"] == "Jamarua  - Semarkona Road".strip()
+    assert rec["fields"] == {"roadDetailsId": 14124, "encRoadDetailsId": "wzlHKPKyuuQ", "roadName": "Jamarua  - Semarkona Road"}
