@@ -565,3 +565,48 @@ def test_pmgsyreg_knows_the_sites_error_page():
     assert pmgsyreg.site_error(err)
     assert not pmgsyreg.site_error("") and not pmgsyreg.site_error(None)
     assert not pmgsyreg.site_error("x" * 6000 + "Something went wrong")     # a report page that happens to hold the words
+# --- PSU ban / holiday lists (banlists, planned source D03) ---------------------------------------------------------------
+
+from adapters import banlists  # noqa: E402
+
+
+def test_banlists_rows_from_pdf_tables():
+    # made-up firms; the shape of BPCL's list: a two-line header (From / To), a header repeated on the next page without its
+    # second line, a row that runs over two table lines, and a "-do-" cell
+    page1 = [["Details of Vendors on Holiday List"],
+             ["Sl. No.", "Vendor Code/PAN", "Name of the vendor", "Address", "Reason for Holiday listing", "Period of Holiday listing", "", "SBU / Entity"],
+             ["", "", "", "", "", "From", "To", ""],
+             ["1", "100001", "M/s Alpha Works", "Plot 1, Pune", "Fake documents", "01-Apr-24", "31-Mar-27", "LPG"],
+             ["", "", "Pvt Ltd", "", "", "", "", ""]]
+    page2 = [["Sl. No.", "Vendor Code/PAN", "Name of the vendor", "Address", "Reason for Holiday listing", "Period of Holiday listing", "", "SBU / Entity"],
+             ["2", "ABCDE1234F", "M/s Beta Traders", "Road 2, Surat", "-do-", "05-May-25", "04-May-27", "Retail"],
+             ["Sr. No.", "Banned as per instruction from Govt."],
+             ["Note: the list is updated monthly"]]
+    rows = banlists.table_rows([page1, page2])
+    assert [r["sr"] for r in rows] == ["1", "2"]
+    a, b = rows
+    assert a["section"] == "Details of Vendors on Holiday List"
+    assert a["columns"]["Name of the vendor"] == "M/s Alpha Works Pvt Ltd"
+    assert a["columns"]["Period of Holiday listing From"] == "01-Apr-24" and a["columns"]["Period of Holiday listing To"] == "31-Mar-27"
+    assert b["columns"]["Period of Holiday listing To"] == "04-May-27"        # the header without its second line reused
+    assert b["columns"]["Reason for Holiday listing"] == "Fake documents"     # "-do-"
+    recs = dict(banlists.to_records("bpcl-holiday", rows, "test"))
+    rb = next(r for r in recs.values() if r["sr"] == "2")
+    assert rb["firm"] == "M/s Beta Traders" and rb["address"] == "Road 2, Surat" and rb["pan"] == "ABCDE1234F"
+    assert rb["from_date"] == "05-May-25" and rb["upto"] == "04-May-27" and rb["banned_by"] == "Retail"
+    assert rb["vendor_code"] == "ABCDE1234F" and rb["org"] == "BPCL" and rb["list_kind"] == "holiday"
+    assert len(recs) == 2 and all(k.startswith("bpcl-holiday-") for k in recs)
+
+
+def test_banlists_html_table_and_pdf_link():
+    page = """<table><tr><th>Sr. No.</th><th>Name of the Firm</th><th>Address of the Firm</th><th>Date of Banning</th>
+              <th>Period of Banning</th><th>Reason for Banning</th></tr>
+              <tr><td>1.</td><td>M/s Gamma &amp; Co</td><td>Shop 3,<br>Delhi</td><td>10-12-2021</td><td>Five years</td>
+              <td>Poor performance</td></tr></table>
+              <a href="/sites/default/files/Debarred%20Firms%20List%20-%20X_1.pdf">list</a>"""
+    rows = banlists.table_rows(banlists.html_tables(page))
+    r = dict(banlists.to_records("nhpc", rows, "test")).popitem()[1]
+    assert r["firm"] == "M/s Gamma & Co" and r["address"] == "Shop 3, Delhi" and r["from_date"] == "10-12-2021"
+    assert r["period"] == "Five years" and r["reason"] == "Poor performance"
+    assert banlists.pdf_link(page, "https://www.bhel.com/list-debarred-firms", banlists.LISTS["bhel-debarred"]["pdf"]) == \
+        "https://www.bhel.com/sites/default/files/Debarred%20Firms%20List%20-%20X_1.pdf"

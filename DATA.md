@@ -99,6 +99,8 @@ characters of `text`.
 | `contractor-registration-pmgsy-completed` | PMGSY completed roads per district: block (`name`), package, road, sanction year, sanctioned and state cost, value of work done, payment made, completion month | `completed-<state code>-<hash>` |
 | `contractor-registration-pmgsy-maintenance` | PMGSY maintenance (DLP) per state and financial year (`year`): block, package, road, connectivity, lengths, completion date, maintenance cost, in liability, the year's and total spending | `maintenance-<state code>-<hash of year and fields>` |
 | `contractor-registration-emarg-roads` | eMARG roads under maintenance per state, district and block (eMARG road id and name; the details need a captcha and are not fetched) | `emarg-<roadDetailsId>` |
+| `contractor-registration-banlists` | Firms banned, debarred or put on holiday by BHEL (two lists), Oil India, OPaL, NHPC and NDDB (planned source D03): firm, address, vendor code, PAN where printed, from / to dates, period, reason, order reference, and every column of the list in `columns` | `<list>-<hash of firm, from date, order ref>` |
+| `contractor-registration-banlists-bpcl` | BPCL's holiday list and its list of vendors served a show-cause notice (holiday listing proposed), same fields | same |
 | `contractor-registration-state-pwd` | Gujarat R&B registered civil (8,113 rows, 14-09-2026) and electrical (1,334, 31-07-2026) contractors | `<list>-<hash of company, address, division, class, dates>` |
 | `contractor-registration-rdso-items` | RDSO items with fewer than 3 (25) / 5 (107) sources and with no Indian source (1), as on 03.06.2024 | `<list>-<item id>-<sub-item id or 0>` |
 | `contractor-registration-ocr` | OCR text of every scan stored before 2026-11-01 (16,081 files) | `<source project minus family>-<hash of source, path>` |
@@ -208,48 +210,10 @@ and Hindi, ~6 CPU-seconds a page). New scans are read as they are stored. To que
 pool run failed on some), run `python tools/build_queues.py` on the box, commit `queues/`, run setup. To try it on the box:
 `eval "$(mybucket env)"; python crawl.py --local ocr '<one payload from queues/ocr.json.gz>'`.
 
-## Report (2026-11-01)
+## Data quality notes
 
-The first pass finished on 2026-10-30 01:20 UTC (about 9 hours): every queue item done but one MoRTH item (below).
+The first pass of 1 Nov 2026 (counts and findings) is in [docs/first-pass-2026-11-01.md](docs/first-pass-2026-11-01.md).
 
-| Project | Records | Documents in the bucket | Scans (no text layer) | Size |
-|---|---|---|---|---|
-| `nhai-tender-archive` | 10,648 tenders (2018-2025) | 41,836 cited, 13,437 of them scans | 13,749 | 40.4 GB |
-| `morth-documents` | 6,841 documents | ~7,000 | 2,673 | 9.5 GB |
-| `nhai-tenders` | 246 live tenders (snapshot 2026-10-29) | 1,122 objects | 208 | 1.1 GB |
-| `nhai-pages` | 243 (100 debarment orders, 49 standard documents, 12 rating documents, ...) | 312 objects | 124 | 0.6 GB |
-| bucket | | 63,686 objects | | 48.0 GiB of 500 |
-
-Added 2026-11-01 (running in the pool after setup): `cpwd-contractors` (114 items: 55 pages and 2 lists, now and every
-month), `mes-works` (34 items), `pmgsy-contractors` (296 items: 37 states x 4
-statuses, now and every month), and, when switched on, `ocr` (485 batches ready: 16,081 scans, 111,705 pages; ~45 runner-hours,
-about 6 hours with 8 workers). From the box, through a proxy: Uttar Pradesh alone has 4,897 active PMGSY contractors (4,782 with a masked PAN), Sikkim
-519, Assam 15 blacklisted.
-
-### What it shows
-
-1. **NHAI's own site is the only source for most NHAI tenders.** Matching reference numbers against the NHAI tenders the team
-   has from CPPP (`gepnic-etenders`): **2,303 of 10,648 (22%)** archive tenders are there; 25-30% for 2018-2020, 10-12% for
-   2024-2025. Toll and user-fee collection contracts are the largest group.
-2. **Empanelment happens in plain tenders.** **314** archive tenders (and 9 of the 246 live ones) are empanelment calls, RFEs or
-   EOIs: toll-plaza operators and amenities, advocates, chartered and cost accountants, advertising agencies, GNSS free-flow
-   tolling, expansion joints and bearings manufacturers. There is no separate register; these tenders and their result
-   documents are the record of who gets empanelled.
-3. **Debarment is published as orders, not as a list.** MoRTH's "Related to Debarment and Blacklisting" group has **38 orders**
-   (March 2023 to October 2026) naming firms and their associates; NHAI's page lists **100** NHIDCL / MoRTH / NHAI / PWD orders
-   (date, order number, subject naming the person or firm), each with its PDF. Many are scans, waiting for the OCR pass.
-   PMGSY is the only source with a **blacklisted status per contractor** (Assam 15; most states list none).
-4. **The PMGSY contractor master is the closest thing to a public register**: per state, every contractor registered for rural
-   road works with the state registration number, address, phones and a masked PAN (first five and last character: enough to
-   tell firms with the same name apart and to match a PAN seen elsewhere). CPWD's enlisted contractors (CEMS), MES's enlistment
-   (CCEP) and the railway approved-vendor directory (IREPS UVAM) are behind logins.
-5. **About 30-40% of the documents are scans**: 13,749 of the NHAI archive's files and 2,673 of MoRTH's. Until their OCR is
-   done, their records have titles and dates but no text.
-6. **MoRTH's tenders are already covered** (eProcure, 24,695 since 2016); what this family adds from MoRTH is the paper trail:
-   950 of 6,841 documents are contractor-related (debarment, model concession / EPC / HAM / BOT agreements, consultancy,
-   ratings), alongside circulars, gazette notifications and public notices.
-
-### Data quality notes
 
 - **Empty files**: 2,794 NHAI archive document links answered HTTP 200 with an empty body; they were stored as empty files under
   `docs/` (ext `pdf`, `bytes` near 0). Treat them as missing. Downloads now refuse empty answers and web pages served in place
@@ -269,3 +233,4 @@ about 6 hours with 8 workers). From the box, through a proxy: Uttar Pradesh alon
   empty where they are only zeros and dashes. One state and status is one CSV export (Uttar Pradesh: 1.4 MB).
 - **Health checks**: since 2026-10-30 02:00 CET the hub's own server gets no answer from nhai.gov.in, morth.gov.in or any other
   India-only site (every family's checks fail on scrape.s1d.me). The projects no longer wait on them.
+- **Ban lists** (`banlists`): each list is read again every week and its rows are upserts, so a firm that leaves a list keeps its last record; `scraped_at` older than the list's last read means it is no longer on it. Some rows name a proprietor and print a PAN: keep them out of reports. The PDF of each version is in the bucket (`pdf/<list>/<hash8>-<file>.pdf`, `pdf_path` in the record).

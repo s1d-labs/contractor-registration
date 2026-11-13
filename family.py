@@ -338,6 +338,29 @@ PROJECTS = [
         "unit_label": "page", "record_label": "item",
         "items": [{"key": f"few-sources{sfx}", "payload": {"section": "0,5,6634"}} for sfx in ("", f"-{MONTH}")],
     },
+    {
+        # Planned source D03: firms that public sector undertakings ban, debar or put "on holiday" (adapters/banlists.py). Each
+        # list is a page on the organisation's site (a table, or a link to the current PDF); a new version every few weeks,
+        # so every list is read again each week. These sites answer from anywhere.
+        "name": f"{FAMILY}-banlists",
+        "title": "Firms banned, debarred or put on holiday by PSUs (BHEL, Oil India, OPaL, NHPC, NDDB)",
+        "task": "crawl", "target": "psu-banlists", "env": _env("banlists", "https://www.bhel.com", ocr=False),
+        "max_workers": 1,
+        "unit_label": "list", "record_label": "firm",
+        "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
+                  for sfx in ("", f"-{WEEK}") for name in ("bhel-debarred", "bhel-banned", "oil-india", "opal", "nddb", "nhpc")],
+    },
+    {
+        # BPCL's holiday list and its list of vendors served a show-cause notice (holiday listing proposed): bharatpetroleum.in
+        # answers 403 outside India.
+        "name": f"{FAMILY}-banlists-bpcl",
+        "title": "Vendors on BPCL's holiday list, and vendors served a show-cause notice",
+        "task": "crawl", "target": "www.bharatpetroleum.in", "env": _env("banlists", "https://www.bharatpetroleum.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "list", "record_label": "firm",
+        "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
+                  for sfx in ("", f"-{WEEK}") for name in ("bpcl-holiday", "bpcl-show-cause")],
+    },
 ] + ([{
     # reads the scans stored above (ocr-needed/) back from the bucket and stores their text; no site is contacted
     "name": f"{FAMILY}-ocr",

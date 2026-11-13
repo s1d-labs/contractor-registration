@@ -86,6 +86,13 @@ jobs:
         run: >
           scrape-check --project contractor-registration-ci-statepwd --task crawl --env ADAPTER=statepwd --timeout 600
           --item '{"key": "gujarat-rnb-electrical", "payload": {"list": "gujarat-rnb-electrical"}}'
+      - name: scrape-check banlists (PSU ban / holiday lists: an HTML table and a PDF; reachability, does not fail the check)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: >
+          scrape-check --project contractor-registration-ci-banlists --task crawl --env ADAPTER=banlists --timeout 600
+          --item '{"key": "nddb", "payload": {"list": "nddb"}}'
+          --item '{"key": "opal", "payload": {"list": "opal"}}'
       - name: scrape-check rdso (reachability, does not fail the check)
         if: ${{ always() }}
         continue-on-error: true

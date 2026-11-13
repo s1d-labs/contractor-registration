@@ -9,8 +9,8 @@ text is on home.s1d.me → Docs → Scraper guide (Part 2), and on team boxes at
 
 - `family.py` holds the projects, targets, env, queue items and health checks; `scrape.json` the setup steps and tasks; the task
   scripts do the scraping. After changing `family.py`, the **setup** workflow (Actions → setup) applies it to the hub.
-- This family has one task (`crawl.py`) and one adapter per site in `adapters/` (`nhai`, `morth`, `mes`, `pmgsy`, `cpwd`, `statepwd`, `rdso`, plus `ocr`, which
-  reads stored scans back from the bucket), picked by the project's `env.ADAPTER`. Each adapter has pure `parse_*` functions tested
+- This family has one task (`crawl.py`) and one adapter per site in `adapters/` (`nhai`, `morth`, `mes`, `pmgsy` with `pmgsyreg`, `emarg`, `cpwd`,
+  `statepwd`, `rdso`, `banlists`, plus `ocr`, which reads stored scans back from the bucket), picked by the project's `env.ADAPTER`. Each adapter has pure `parse_*` functions tested
   on saved responses (`tests/test_adapters.py`, `tests/pages/`) and `run(ctx, payload)` for one queue item; `adapters/common.py`
   holds the counted requests, document storage (with `seen/<sha1>.json` markers so unchanged documents are not fetched twice),
   PDF text, and inline OCR when the project's env has `OCR=1`. OCR is off for now (`OCR = False` in `family.py`): scans are
