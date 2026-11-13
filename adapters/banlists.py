@@ -1,4 +1,5 @@
-"""Firms that public sector undertakings ban, debar or put "on holiday" (planned source D03): who may not bid.
+"""Firms that public sector undertakings ban, debar or put "on holiday" (planned source D03), and suppliers that state medical
+services corporations blacklist (D04): who may not bid.
 
 Each list is one page on the organisation's site: either the list itself (an HTML table) or a page that links the list as a PDF
 (the link changes with each new version, so the page is read first). PDF tables are read with pdfplumber; the stored PDF and its
@@ -33,13 +34,22 @@ LISTS = {
                      "kind": "holiday", "pdf": r"bpcl-holiday-listing[^\"'<>]*\.pdf"},
     "bpcl-show-cause": {"org": "BPCL", "page": "https://www.bharatpetroleum.in/bharat-petroleum-for/business-associates/vendors.aspx",
                         "kind": "show_cause", "pdf": r"scn-list[^\"'<>]*\.pdf"},
+    # planned source D04: state medical services corporations' blacklisted / debarred suppliers (drugs, equipment)
+    "tnmsc": {"org": "Tamil Nadu Medical Services Corporation (TNMSC)", "page": "https://tnmsc.tn.gov.in/blacklisted/blacklisted.php",
+              "kind": "blacklisted"},
+    "rmsc-company": {"org": "Rajasthan Medical Services Corporation (RMSC)", "kind": "banned",
+                     "page": "https://rmsc.health.rajasthan.gov.in/content/raj/medical/rajasthan-medical-services-corporation-ltd-/en/library/Banned-firms0/Banned_Company.html"},
+    "rmsc-product": {"org": "Rajasthan Medical Services Corporation (RMSC)", "kind": "banned_product",
+                     "page": "https://rmsc.health.rajasthan.gov.in/content/raj/medical/rajasthan-medical-services-corporation-ltd-/en/library/Banned-firms0/Banned_Product.html"},
+    "gmscl": {"org": "Gujarat Medical Services Corporation (GMSCL)", "page": "https://gmscl.gujarat.gov.in/black-list-firm.htm",
+              "kind": "debarred"},
     # hindustanpetroleum.com also answers 403 outside India; its procurement page links the current list as holiday_list.pdf
     "hpcl-holiday": {"org": "HPCL", "page": "https://www.hindustanpetroleum.com/purchase-procurement", "kind": "holiday",
                      "pdf": r"/holiday_list[^\"'<>]*\.pdf"},
 }
 
 SERIAL = re.compile(r"^\d{1,4}\s*[.)]?$")
-FIRST_HEAD = re.compile(r"^(s\.?\s*no|s[li]\.?\s*no|sl\.?|sr\.?|serial)", re.I)   # "SI. No." (capital I) too
+FIRST_HEAD = re.compile(r"^\W*\w?(s\.?\s*no|s[li]\.?\s*no|sl\.?|sr\.?|serial)\b", re.I)   # "SI. No.", RMSC's "aS.NO" too
 PAN = re.compile(r"\b([A-Z]{5}[0-9]{4}[A-Z])\b")
 DITTO = re.compile(r"^-?\s*do\s*-?$", re.I)
 # common field <- header words (first match wins, in this order)
@@ -90,12 +100,15 @@ def table_rows(tables):
     head, base, sub, section, out = None, None, False, "", []
     full = {}                                     # header line as printed -> header with its second line (From / To) merged
     for table in tables:
+        numbered = any(raw and SERIAL.match(_cell(raw[0])) for raw in table)   # RMSC leaves the serial column empty
         for raw in table:
             cells = [_cell(c) for c in raw]
             filled = [c for c in cells if c]
             if not filled:
                 continue
             if _is_head(cells):
+                again = next((i for i in range(1, len(cells)) if FIRST_HEAD.match(cells[i])), None)
+                cells = cells[:again]                     # TNMSC repeats its whole header line in the same row
                 base = tuple(cells)
                 head = []
                 for i, c in enumerate(cells):             # an empty header cell is the right half of a merged one
@@ -105,8 +118,17 @@ def table_rows(tables):
             if head and FIRST_HEAD.match(cells[0]) and len(filled) > 1:   # "Sr. No. | Banned as per instruction from Govt."
                 section = " ".join(filled[1:])[:120]
                 continue
-            if head and sub and not cells[0] and len(filled) > 1 and len(cells) == len(head) and all(len(c) < 20 for c in filled):
+            short = all(len(c) < 20 and not re.search(r"\d", c) for c in filled)    # "From", "To": no dates, no numbers
+            if head and sub and not cells[0] and len(filled) > 1 and len(cells) == len(head) and short:
                 head = [f"{h} {c}".strip() if c else h for h, c in zip(head, cells)]   # a second header line (From / To)
+                full[base] = list(head)
+                sub = False
+                continue
+            merged = [i for i in range(len(head or [])) if (i and head[i] == head[i - 1]) or (i + 1 < len(head) and head[i] == head[i + 1])]
+            if head and sub and len(filled) == len(cells) == len(merged) and short:
+                head = list(head)                         # the second header line has cells only under the merged ones
+                for i, c in zip(merged, cells):
+                    head[i] = f"{head[i]} {c}"
                 full[base] = list(head)
                 sub = False
                 continue
@@ -117,6 +139,12 @@ def table_rows(tables):
                 for h, c in zip(head[1:], cells[1:]):
                     cols[h] = prev.get(h, "") if DITTO.match(c) else c
                 out.append({"sr": cells[0].rstrip(".)").strip(), "section": section, "columns": cols})
+            elif head and not numbered and not cells[0] and len(filled) >= 2 and len(cells) == len(head):
+                out.append({"sr": str(len(out) + 1), "section": section,
+                            "columns": {h: c for h, c in zip(head[1:], cells[1:])}})
+            elif head and out and len(filled) == 1 and filled[0].startswith("*"):
+                note = out[-1]["columns"].get("note")                              # TNMSC's footnote under a row
+                out[-1]["columns"]["note"] = f"{note} {filled[0]}" if note else filled[0]
             elif head and out and not cells[0] and len(cells) == len(head):
                 cols = out[-1]["columns"]                                          # the row goes on in the next table line
                 for h, c in zip(head[1:], cells[1:]):
@@ -135,8 +163,12 @@ def html_tables(page):
     for t in re.findall(r"<table.*?</table>", page or "", re.S | re.I):
         rows = []
         for tr in re.findall(r"<tr.*?</tr>", t, re.S | re.I):
-            cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S | re.I)
-            rows.append([_html.unescape(re.sub(r"<br\s*/?>", "\n", re.sub(r"<(?!br)[^>]+>", " ", c), flags=re.I)) for c in cells])
+            row = []
+            for attrs, c in re.findall(r"<t[dh]([^>]*)>(.*?)</t[dh]>", tr, re.S | re.I):
+                span = re.search(r"colspan\s*=\s*[\"']?(\d+)", attrs, re.I)
+                text = _html.unescape(re.sub(r"<br\s*/?>", "\n", re.sub(r"<(?!br)[^>]+>", " ", c), flags=re.I))
+                row += [text] + [""] * (min(int(span.group(1)), 20) - 1 if span else 0)   # a merged cell keeps its columns
+            rows.append(row)
         tables.append(rows)
     return tables
 

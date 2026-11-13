@@ -2,7 +2,7 @@
 
 Government contractor, consultant and vendor registers for the s1d-labs scrape pool: who may bid for public works in India,
 under which class and limit, and who is banned. The family covers the planned sources C01–C06 (contractor registration) and
-D03 (PSU ban and holiday lists) of india.s1d.me. The sites run on different platforms, so the family has one worker loop
+D03 and D04 (PSU and state medical corporation ban lists) of india.s1d.me. The sites run on different platforms, so the family has one worker loop
 (`crawl.py`) and one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks it.
 
 ## Layout
@@ -32,7 +32,7 @@ D03 (PSU ban and holiday lists) of india.s1d.me. The sites run on different plat
 | `rdso` | rdso.indianrailways.gov.in (proxy + India servers) | `-rdso-items` (monthly) | C04 |
 | `nhai`, `morth` | nhai.gov.in, morth.gov.in (JSON APIs) | `-nhai-tenders` (daily), `-nhai-tender-archive`, `-nhai-pages`, `-morth-documents` (weekly) | C05 |
 | `pmgsy` (+ `pmgsyreg`), `emarg` | pmgsy.dord.gov.in (SSRS reports, drill-through), emarg.gov.in (proxy) | `-pmgsy-contractors`, `-pmgsy-agreements`, `-pmgsy-corenetwork`, `-pmgsy-completed`, `-pmgsy-maintenance`, `-emarg-roads` | C06 |
-| `banlists` | PSU ban / holiday lists: BHEL, Oil India, OPaL, NHPC, NDDB; BPCL and HPCL (proxy) | `-banlists`, `-banlists-in` (weekly) | D03 |
+| `banlists` | ban / holiday lists: BHEL, Oil India, OPaL, NHPC, NDDB, TNMSC, RMSC, GMSCL; BPCL and HPCL (proxy) | `-banlists`, `-banlists-in` (weekly) | D03, D04 |
 | `ocr` | the family's own bucket: scans read back with tesseract | `-ocr` (off: `OCR = False` in `family.py`) | all |
 
 Documents go to the bucket under `<project>/pdf/` (with the text beside each as `.pdf.txt`), `ocr-needed/` (scans, for a later

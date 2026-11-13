@@ -22,6 +22,9 @@ reports are newer.
   Left out: MIDHANI (a new PDF each month with no fixed page; it repeats MoD's bans), BDL (newest list 2022), Mazagon Dock (no
   list on its page), ONGC, GAIL, NTPC, POWERGRID,
   Coal India, SAIL, HAL, EIL, NMDC (nothing found on their home pages), MoD (the page moved).
+- **D04 (state medical corporations' blacklists), same adapter:** TNMSC `blacklisted/blacklisted.php` (11: drugs and equipment),
+  RMSC company-wise 8 and product-wise 101, GMSCL `black-list-firm.htm` 10; all answer from Germany. KMSCL, BMSICL, MPPHSCL,
+  TSMSIDC, CGMSC, OSMC: no list found on the home page (or no answer).
 - **C02 recheck (14 Nov, through a proxy):** MP PWD answers again (4 Nov: no answer), but shows no public list (registration
   is a login system). UP, Punjab, WB PWD, Assam and Maharashtra WRD still time out. Karnataka's home page answers.
 

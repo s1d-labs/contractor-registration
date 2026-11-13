@@ -610,3 +610,20 @@ def test_banlists_html_table_and_pdf_link():
     assert r["period"] == "Five years" and r["reason"] == "Poor performance"
     assert banlists.pdf_link(page, "https://www.bhel.com/list-debarred-firms", banlists.LISTS["bhel-debarred"]["pdf"]) == \
         "https://www.bhel.com/sites/default/files/Debarred%20Firms%20List%20-%20X_1.pdf"
+
+
+def test_banlists_html_merged_header_cells_and_rows_without_serials():
+    # made-up rows in TNMSC's shape: a header cell over two columns, the header line repeated in the same row, a second header
+    # line only under the merged cell, and a footnote line; and RMSC's: a garbled first header cell and no serial numbers
+    tnmsc = """<table><tr><th>SNo</th><th>BL Code</th><th>Firm</th><th colspan="2">Black Listed Period</th><th>Reason</th>
+               <th>Sl. No.</th><th>BL Code</th></tr><tr><th>From</th><th>To</th></tr>
+               <tr><td>1</td><td>BL0001</td><td>DELTA PHARMA</td><td>11.05.2022</td><td>10.05.2027</td><td>Fraud</td></tr>
+               <tr><td></td><td>* BL0001 - also its sister firm</td><td></td><td></td><td></td><td></td></tr></table>"""
+    rows = banlists.table_rows(banlists.html_tables(tnmsc))
+    assert len(rows) == 1 and rows[0]["columns"]["Black Listed Period To"] == "10.05.2027"
+    assert rows[0]["columns"]["BL Code"] == "BL0001" and rows[0]["columns"]["note"].startswith("* BL0001")
+    rmsc = """<table><tr><td>aS.NO</td><td>NAME OF FIRM / COMPANY</td><td>REASON</td><td>UP TO</td></tr>
+              <tr><td></td><td>Epsilon Remedies</td><td>NOSQ</td><td>06.11.2030</td></tr>
+              <tr><td></td><td>Zeta Labs</td><td>NOSQ</td><td>01.01.2029</td></tr></table>"""
+    recs = [r for _, r in banlists.to_records("rmsc-company", banlists.table_rows(banlists.html_tables(rmsc)), "test")]
+    assert [(r["sr"], r["firm"], r["upto"]) for r in recs] == [("1", "Epsilon Remedies", "06.11.2030"), ("2", "Zeta Labs", "01.01.2029")]
