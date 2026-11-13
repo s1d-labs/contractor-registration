@@ -1,12 +1,12 @@
 # C03: MES approved products, consultants and works policy (mes.gov.in)
 
-**Status:** ✅ COMPLETE. All 38 items are done: **290** rows (263 product-approval rows, 10 technical-information, 10 contract-policy
+**Status:** ✅ COMPLETE. All 42 items are done (weekly refresh): **291** rows (263 product-approval rows, 10 technical-information, 10 contract-policy
 letters, 7 consultancy rows) and their PDFs. Since 3 Nov the project borrows only the proxies mes.gov.in accepts (`proxy_only`).
 The contractor enlistment itself (CCEP) is login-only.
-**Updated:** 4 Nov 2026 09:55 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`)
+**Updated:** 14 Nov 2026 03:00 IST · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`)
 **Projects:** `contractor-registration-mes-works` (adapter `mes`, target `mes.gov.in`, `proxy="IN"`, `proxy_only=["91.124.42."]`, 2 workers)
 **Data:** `select … from public.records where project = 'contractor-registration-mes-works'` · bucket `contractor-registration-mes-works/`
-**Previous report:** 2 Nov 2026 10:32 CET (stalled at 23 / 38 on refused proxies)
+**Previous report:** 4 Nov 2026 09:55 CET (290 rows; 14 Nov: one more row from the weekly refresh of 9 Nov)
 
 ---
 
