@@ -5,7 +5,19 @@ planned source:** [C01 CPWD](report-C01.md) · [C02 State PWD](report-C02.md) ·
 · [C05 NHAI / MoRTH](report-C05.md) · [C06 PMGSY](report-C06.md) (updated 4 Nov 2026). The snapshot below is from 1 Nov 2026; the
 reports are newer.
 
-**4 Nov 2026 (latest):**
+**14 Nov 2026 (latest):**
+- Box moved to dev-vps-3 (8 CPU, 12 GB RAM, 80 GB disk; 12 GB used). Bucket 142.9 GiB of 500 GB. `~/.venvs/cr` works; 55 tests pass.
+- The **setup** workflow was `disabled_manually` (scheduled runs stopped after 9 Nov; last change 13 Nov 16:53 IST, the time of
+  Sarthak's manual run after PR #13). Enabled again and run on 14 Nov (trideep's instruction). The other 37 family repos had theirs on.
+- PR #12 (Sarthak: actions v6, .gitignore) merged. PR #13 (Sarthak: PMGSY road register, eMARG) was merged on 13 Nov.
+- **Tripura complete:** 1,518 ids from 1,539 rows (21 rows repeat). All five new C02 states are complete.
+- **PMGSY road register:** corenetwork 473 / 792 districts (563,510 rows), completed 480 / 1,584 (43,874), emarg 74 / 74 (86,463),
+  maintenance 0 / 1,036 (waits: the family borrows at most 4 proxies, and the other three projects hold them).
+- **Fix:** `pmgsyreg` raised `ValueError` ("reached report None") when OMMAS answered its error page. Rajasthan / Banswara's
+  completed-roads list gives that page for every block row. Now a `site` failure and a retry. An error page at an upper level
+  failed silently before (item done, 0 rows); now the item fails.
+
+**4 Nov 2026:**
 - PR #8 squash-merged (`51547a2`) and setup run: proxied projects back in the pool, MES on `proxy_only=["91.124.42."]`.
 - **MES complete** (38/38, 290 rows). **PMGSY KPI stored:** 7,087 contractor scores with full PAN (6,978 match the master by state +
   masked PAN). **WB PHED:** 26 scanned lists stored (OCR later). **NHAI re-fetch:** all 1,551 links still empty at NHAI (gap at source).
