@@ -201,7 +201,8 @@ PROJECTS = [
         "name": f"{FAMILY}-pmgsy-corenetwork",
         "title": "PMGSY core network road register per district: road number, name, route, length, from, to, habitations",
         "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
-        "proxy": "IN", "max_workers": 2,
+        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers
+        "proxy": "IN", "geo": "IN", "max_workers": 2,
         "unit_label": "district", "record_label": "road x habitation",
         "items": [{"key": f"cn-{state:02d}-{district}", "payload": {"report": "corenetwork", "state": state,
                                                                    "state_name": PMGSY_STATES[state], "district": district,
@@ -214,7 +215,8 @@ PROJECTS = [
         "name": f"{FAMILY}-pmgsy-completed",
         "title": "PMGSY completed roads per district: package, road, sanction year, cost, value of work done, completion month",
         "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
-        "proxy": "IN", "max_workers": 1,
+        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers
+        "proxy": "IN", "geo": "IN", "max_workers": 1,
         "unit_label": "district", "record_label": "road",
         "items": [{"key": f"done-{state:02d}-{district}{sfx}", "payload": {"report": "completed", "state": state,
                                                                           "state_name": PMGSY_STATES[state], "district": district,
@@ -227,7 +229,8 @@ PROJECTS = [
         "name": f"{FAMILY}-pmgsy-maintenance",
         "title": "PMGSY road maintenance per state and year: package, road, completion, maintenance cost and spending",
         "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
-        "proxy": "IN", "max_workers": 1,
+        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers
+        "proxy": "IN", "geo": "IN", "max_workers": 1,
         "unit_label": "state x year", "record_label": "road",
         "items": [{"key": f"upkeep-{code:02d}-{year}", "payload": {"report": "maintenance", "state": code, "state_name": name, "year": year}}
                   for year in range(FY, 1999, -1) for code, name in PMGSY_STATES.items()]
@@ -337,6 +340,31 @@ PROJECTS = [
         "proxy": "IN", "geo": "IN", "max_workers": 1,
         "unit_label": "page", "record_label": "item",
         "items": [{"key": f"few-sources{sfx}", "payload": {"section": "0,5,6634"}} for sfx in ("", f"-{MONTH}")],
+    },
+    {
+        # Planned sources D03 and D04: firms that public sector undertakings ban, debar or put "on holiday", and suppliers that
+        # state medical services corporations blacklist (TNMSC, RMSC, GMSCL) (adapters/banlists.py). Each
+        # list is a page on the organisation's site (a table, or a link to the current PDF); a new version every few weeks,
+        # so every list is read again each week. These sites answer from anywhere.
+        "name": f"{FAMILY}-banlists",
+        "title": "Firms banned, debarred or put on holiday by PSUs (BHEL, Oil India, OPaL, NHPC, NDDB) and state medical corporations",
+        "task": "crawl", "target": "banlists", "env": _env("banlists", "https://www.bhel.com", ocr=False),
+        "max_workers": 1,
+        "unit_label": "list", "record_label": "firm",
+        "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
+                  for sfx in ("", f"-{WEEK}") for name in ("bhel-debarred", "bhel-banned", "oil-india", "opal", "nddb", "nhpc",
+                                                           "tnmsc", "rmsc-company", "rmsc-product", "gmscl")],
+    },
+    {
+        # BPCL's holiday list, its list of vendors served a show-cause notice (holiday listing proposed), and HPCL's holiday list:
+        # bharatpetroleum.in and hindustanpetroleum.com answer 403 outside India.
+        "name": f"{FAMILY}-banlists-in",
+        "title": "Vendors on BPCL's and HPCL's holiday lists, and vendors BPCL served a show-cause notice",
+        "task": "crawl", "target": "www.bharatpetroleum.in", "env": _env("banlists", "https://www.bharatpetroleum.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "list", "record_label": "firm",
+        "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
+                  for sfx in ("", f"-{WEEK}") for name in ("bpcl-holiday", "bpcl-show-cause", "hpcl-holiday")],
     },
 ] + ([{
     # reads the scans stored above (ocr-needed/) back from the bucket and stores their text; no site is contacted

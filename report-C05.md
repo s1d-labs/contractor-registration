@@ -1,14 +1,15 @@
 # C05: NHAI / MoRTH tenders, empanelment, ratings and debarment orders (nhai.gov.in, morth.gov.in)
 
-**Status:** ✅ COMPLETE. **10,903** NHAI tenders (10,648 archive 2018–2025 + 255 live, daily), 243 NHAI page records, and **6,934** MoRTH
+**Status:** ✅ COMPLETE. **10,904** NHAI tenders (10,648 archive 2018–2025 + 256 live, daily), 247 NHAI page records, and **6,943** MoRTH
 documents are stored. The re-fetch of the 2,789 archive documents stored empty (1,551 distinct links) ran on 2 Nov: **every one is
-still empty at NHAI**, so this is a gap at the source.
-**Updated:** 4 Nov 2026 09:55 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`)
+still empty at NHAI**, so this is a gap at the source. The daily live-tender items of 10–12 Nov are missing: the setup
+workflow was off from 10 to 13 Nov (on again since 14 Nov).
+**Updated:** 14 Nov 2026 03:00 IST · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`)
 **Projects:** `-nhai-tenders` (daily), `-nhai-tender-archive` (5 workers), `-nhai-pages` (weekly), `-morth-documents` (weekly).
 All run on GitHub runners, direct, with no proxy (all names start with `contractor-registration`).
 **Data:** `select … from public.records where project like 'contractor-registration-nhai-%'` / `'contractor-registration-morth-documents'` ·
 bucket `contractor-registration-nhai-tender-archive/` etc. · [DATA.md](DATA.md)
-**Previous report:** 2 Nov 2026 10:32 CET (re-fetch queued)
+**Previous report:** 4 Nov 2026 09:55 CET (re-fetch done)
 
 ---
 

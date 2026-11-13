@@ -16,6 +16,17 @@ reports are newer.
 - **Fix:** `pmgsyreg` raised `ValueError` ("reached report None") when OMMAS answered its error page. Rajasthan / Banswara's
   completed-roads list gives that page for every block row. Now a `site` failure and a retry. An error page at an upper level
   failed silently before (item done, 0 rows); now the item fails.
+- **New scope, D03 (PSU ban and holiday lists):** no family covered it. Adapter `banlists` (pdfplumber tables, HTML tables), projects
+  `-banlists` (BHEL debarred 19 and banned 131, Oil India 92, OPaL 11, NHPC 11, NDDB 6; these answer from Germany) and
+  `-banlists-in` (proxy: BPCL holiday list 121, show-cause list 53, HPCL holiday list 12 from `purchase-procurement`). Weekly refresh.
+  Left out: MIDHANI (a new PDF each month with no fixed page; it repeats MoD's bans), BDL (newest list 2022), Mazagon Dock (no
+  list on its page), ONGC, GAIL, NTPC, POWERGRID,
+  Coal India, SAIL, HAL, EIL, NMDC (nothing found on their home pages), MoD (the page moved).
+- **D04 (state medical corporations' blacklists), same adapter:** TNMSC `blacklisted/blacklisted.php` (11: drugs and equipment),
+  RMSC company-wise 8 and product-wise 101, GMSCL `black-list-firm.htm` 10; all answer from Germany. KMSCL, BMSICL, MPPHSCL,
+  TSMSIDC, CGMSC, OSMC: no list found on the home page (or no answer).
+- **C02 recheck (14 Nov, through a proxy):** MP PWD answers again (4 Nov: no answer), but shows no public list (registration
+  is a login system). UP, Punjab, WB PWD, Assam and Maharashtra WRD still time out. Karnataka's home page answers.
 
 **4 Nov 2026:**
 - PR #8 squash-merged (`51547a2`) and setup run: proxied projects back in the pool, MES on `proxy_only=["91.124.42."]`.

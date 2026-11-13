@@ -1,77 +1,48 @@
 # contractor-registration
 
-Government contractor, consultant and vendor registers for the s1d-labs pool: empanelment calls, ratings, debarment orders and
-the tenders and circulars around them. The sites run on different platforms, so this family is one worker loop (`crawl.py`) with
-one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks it.
+Government contractor, consultant and vendor registers for the s1d-labs scrape pool: who may bid for public works in India,
+under which class and limit, and who is banned. The family covers the planned sources C01–C06 (contractor registration) and
+D03 and D04 (PSU and state medical corporation ban lists) of india.s1d.me. The sites run on different platforms, so the family has one worker loop
+(`crawl.py`) and one adapter per site (`adapters/<site>.py`); each project's `env.ADAPTER` picks it.
 
-| Adapter | Site | Projects (family.py) |
-|---|---|---|
-| `nhai` | nhai.gov.in (Angular + Drupal JSON API) | `-nhai-tenders` (live, daily), `-nhai-tender-archive`, `-nhai-pages` (weekly) |
-| `morth` | morth.gov.in (Angular + Laravel JSON API) | `-morth-documents` (weekly: new documents only) |
-| `mes` | mes.gov.in (Drupal 11 tables), through the hub's Indian proxies | `-mes-works` (weekly) |
-| `pmgsy` | pmgsy.dord.gov.in (OMMAS citizen reports, SSRS CSV export and drill-through), through the Indian proxies | `-pmgsy-contractors`, `-pmgsy-agreements` (monthly) |
-| `cpwd` | erp.cpwd.gov.in (CPWD's Liferay portal), through the Indian proxies | `-cpwd-contractors` (monthly) |
-| `statepwd` | state PWD / R&B registers published as PDF lists (Gujarat R&B), through the Indian proxies | `-state-pwd` (monthly) |
-| `rdso` | rdso.indianrailways.gov.in: lists of items with few approved sources (PDF), through the Indian proxies | `-rdso-items` (monthly) |
-| `ocr` | the family's own bucket: scans read back and OCR'd with tesseract (English + Hindi) | `-ocr` (off for now: `OCR = False` in family.py) |
+## Layout
 
-Documents go to the family bucket as `pdf/` (with the extracted text beside each as `.pdf.txt`), `ocr-needed/` (scans without a
-text layer, kept for a later OCR pass) and `docs/`. Where the records and files end up and
-what they show: [DATA.md](DATA.md). What each site offers, what is behind a login, and what comes next: [DISCOVERY.md](DISCOVERY.md).
-
-The setup workflow runs every day: it adds the day's live-tender items and the week's / month's refresh items. A document stored
-before and unchanged on the site (same Content-Length / Last-Modified) is not fetched again (`seen/<sha1>.json` markers).
-
-The sites answer Indian addresses; GitHub's runners reach nhai.gov.in and morth.gov.in, and MES / PMGSY borrow one of the hub's
-Mumbai proxies (`proxy="IN"`). From the team box: `myproxy run python crawl.py --local …` (and `NO_PROXY=127.0.0.1,localhost` for
-scrape-check).
-
-Run one queue item without the hub: `python crawl.py --local nhai '{"kind": "page", "nid": "publication-rating-dpr-consultants"}'`.
-OCR a few stored scans from the box: `eval "$(mybucket env)"; python crawl.py --local ocr '<payload from queues/ocr.json.gz>'`.
-Rebuild the OCR queue and the MoRTH baseline from what is stored: `python tools/build_queues.py`, commit `queues/`, run setup.
-Add a site: write `adapters/<site>.py` with `run(ctx, payload)` and pure `parse_*` functions, saved responses in `tests/pages/`, a
-project in `family.py`, and a light `scrape-check --project contractor-registration-ci-<site>` step in `.github/workflows/check.yml`.
-
-The rest of this README is the template's guide.
-
-## Make your family
-
-1. Ask the hub owner to **add the family** on [scrape.s1d.me/runners](https://scrape.s1d.me/runners) (name, what it scrapes, owner).
-   The hub creates `s1d-labs/<family>` from this template, names the family in `scrape.json`, and makes the owner admin
-   (with the GitHub account they added on home.s1d.me).
-2. Clone it: `gh repo clone s1d-labs/<family>`.
-3. In your repo:
-   - `scrape.json`: set `"family"` to the family name; list your tasks (one command each) and setup steps.
-   - `family.py`: your projects (one queue of work per site), their target hosts, the env your command needs, the queue items,
-     and the health checks.
-   - `crawl.py` (or whatever your tasks run): the scraper.
-4. **Check it**: `scrape-check` in the repo (needs `pip install "scrape-hub-client @ git+https://github.com/s1d-labs/runner@main#subdirectory=sdk"`).
-   It runs your setup and task against a local stand-in hub on 3 real items and says what works. The **check** workflow runs it
-   (and `tests/`) on every push.
-5. Run the **setup** workflow (Actions → setup → Run workflow). It registers the projects, puts them in the pool and registers
-   the health checks.
-6. The hub starts runs in members' accounts when the pool is on and there is work. Watch it on scrape.s1d.me.
-
-## What your code gets
-
-The pool worker ([s1d-labs/runner](https://github.com/s1d-labs/runner)) checks out this repo at `main`, runs the `setup` steps from
-`scrape.json`, and for each assignment runs the task's command here with:
-
-| Variable | What |
+| Path | What |
 |---|---|
-| `SCRAPE_POOL_PROJECT` | the project to work on |
-| `SCRAPE_JOB_INDEX`, `SCRAPE_TOTAL_JOBS` | this worker's slice |
-| `SCRAPE_MAX_HOURS` | how long the command may run |
-| `SCRAPE_HUB_URL` | the hub |
-| your project's `env` | e.g. `SITE` |
+| `family.py` | every project: target, network (`proxy` / `geo`), queue items, refresh items (daily / weekly / monthly) |
+| `setup_family.py`, `scrape.json` | applies `family.py` to the hub (the **setup** workflow, every day at 07:00 IST) |
+| `crawl.py` | the task: claims items and runs the project's adapter; `--local` runs one item without the hub |
+| `adapters/` | one module per site, with pure `parse_*` functions; `common.py`: counted requests, document storage, PDF text |
+| `tests/`, `tests/pages/` | parser tests on saved (or hand-made) pages; `python -m pytest -q tests` |
+| `tools/` | box-side tools: `build_queues.py` (OCR queue, MoRTH baseline), `ireps_vendors.py` (human sign-in, on hold) |
+| `queues/` | queue items built from what is stored (OCR batches, PMGSY districts, NHAI re-fetch) |
+| `report-C01.md` … `report-C06.md`, `report-D03.md` | one report per planned source, for readers (published on pub.s1d.me) |
+| `DATA.md` | where the records and files are, record ids, data quality notes |
+| `DISCOVERY.md` | internal notes: what each site offers, logins, dead ends, decisions |
+| `docs/` | older material (the first pass of 1 Nov 2026) |
+| `CLAUDE.md` | the pool contract (runner env, hub client, metrics, proxies), for people and for Claude Code |
 
-Use `scrape_hub_client` (`HubClient`) to claim queue items, store records, upload files and report counters. Exit when there is
-nothing left; the worker then asks the hub for the next assignment.
+## Adapters and projects
 
-## Rules (the full contract is in CLAUDE.md, written for people and for Claude Code)
+| Adapter | Site | Projects (prefix `contractor-registration`) | Source |
+|---|---|---|---|
+| `cpwd` | erp.cpwd.gov.in (proxy) | `-cpwd-contractors` (monthly) | C01 |
+| `statepwd` | state PWD / R&B / Works / PHED lists: PDF, HTML tables, an ASP.NET register | `-state-pwd` (Gujarat), `-state-pwd-maharashtra`, `-wb`, `-uttarakhand`, `-odisha`, `-tripura`, `-arunachal`, `-haryana` (monthly) | C02 |
+| `mes` | mes.gov.in (proxy, `91.124.42.x` only) | `-mes-works` (weekly) | C03 |
+| `rdso` | rdso.indianrailways.gov.in (proxy + India servers) | `-rdso-items` (monthly) | C04 |
+| `nhai`, `morth` | nhai.gov.in, morth.gov.in (JSON APIs) | `-nhai-tenders` (daily), `-nhai-tender-archive`, `-nhai-pages`, `-morth-documents` (weekly) | C05 |
+| `pmgsy` (+ `pmgsyreg`), `emarg` | pmgsy.dord.gov.in (SSRS reports, drill-through), emarg.gov.in (proxy) | `-pmgsy-contractors`, `-pmgsy-agreements`, `-pmgsy-corenetwork`, `-pmgsy-completed`, `-pmgsy-maintenance`, `-emarg-roads` | C06 |
+| `banlists` | ban / holiday lists: BHEL, Oil India, OPaL, NHPC, NDDB, TNMSC, RMSC, GMSCL; BPCL and HPCL (proxy) | `-banlists`, `-banlists-in` (weekly) | D03, D04 |
+| `ocr` | the family's own bucket: scans read back with tesseract | `-ocr` (off: `OCR = False` in `family.py`) | all |
 
-- **Be polite.** Use `hub.settings["threads"]` and `delay_ms`, idle while `hub.settings["paused"]`, and report `n_http` and
-  `t_http_s` for every request and `http_<code>` / `http_error` for failures: the hub throttles you from these.
-- **Files go through the hub** (`hub.upload_many`): it signs each upload into the family's bucket (500 GB per member) and stops at
-  the cap. Never put storage keys in this repo.
-- **Public data only**; read the site's terms first. See the team docs on home.s1d.me (Scraping rules).
+Documents go to the bucket under `<project>/pdf/` (with the text beside each as `.pdf.txt`), `ocr-needed/` (scans, for a later
+OCR pass) and `docs/`. A document stored before and unchanged on the site is not fetched again (`seen/<sha1>.json` markers).
+
+## Run and change
+
+- One item without the hub: `python crawl.py --local banlists '{"list": "nddb"}'`. India-only sites from a team box:
+  `myproxy run python crawl.py --local …`.
+- Against a local stand-in hub: `scrape-check --project contractor-registration-banlists --items 2`.
+- Add a site: `adapters/<site>.py` with `run(ctx, payload)` and pure `parse_*` functions, a test in `tests/`, a project in
+  `family.py`, and a light `scrape-check` step in `.github/workflows/check.yml`. Merge to `main`, then run **Actions → setup**.
+- The pool contract, the hub client and the proxy rules: [CLAUDE.md](CLAUDE.md).
