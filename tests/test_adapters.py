@@ -557,3 +557,11 @@ def test_emarg_road_list():
                             {"blockId": 6990, "blockName": "Balod"})
     assert rec["road_details_id"] == 14124 and rec["road_name"] == "Jamarua  - Semarkona Road".strip()
     assert rec["fields"] == {"roadDetailsId": 14124, "encRoadDetailsId": "wzlHKPKyuuQ", "roadName": "Jamarua  - Semarkona Road"}
+
+
+def test_pmgsyreg_knows_the_sites_error_page():
+    err = "<html><head><title>Error &ndash; OMMAS | PMGSY</title></head><body><h1>Something went wrong</h1>" \
+          "<p>An error occurred while processing your request. Please try again in a few moments.</p></body></html>"
+    assert pmgsyreg.site_error(err)
+    assert not pmgsyreg.site_error("") and not pmgsyreg.site_error(None)
+    assert not pmgsyreg.site_error("x" * 6000 + "Something went wrong")     # a report page that happens to hold the words

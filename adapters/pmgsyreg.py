@@ -77,6 +77,12 @@ def leaf_name(viewer_html):
     return m.group(1) if m else None
 
 
+def site_error(page):
+    """True for OMMAS's own error page ("Something went wrong", about 1 kB), which the site answers in place of a report it
+    cannot build (2026-11-14: every block row of Rajasthan / Banswara's completed roads). Pure."""
+    return bool(page) and len(page) < 5000 and "Something went wrong" in page
+
+
 def parse_leaf(csv_text):
     """The detail rows of an SSRS CSV export as dicts {field name (lower case): value}. The export has a few sections, each a
     row of field names and then its rows; the detail section is the one with the most rows. Fields that only repeat a caption
@@ -149,6 +155,10 @@ def walk(ctx, spec, payload):
         if depth == len(path):
             leaves.append((prefix, v))
             return True
+        if site_error(v):                                 # not "no roads": the site failed to build this level
+            ctx.hub.failure("site", f"{payload['report']}-{payload['state']}-{payload.get('district') or payload.get('year')}",
+                            f"{SITE} answers its error page at level {depth} (path {prefix})")
+            return False
         ids = drill_ids(v)
         if not ids:
             return True                                   # nothing below (a district without roads)
@@ -191,6 +201,9 @@ def run(ctx, payload):
     n = 0
     for k, (prefix, v) in enumerate(leaves):
         name = leaf_name(v)
+        if name is None and site_error(v):
+            ctx.hub.failure("site", f"{kind}-{where}", f"{SITE} answers its error page for this road list (path {prefix})")
+            return None                                   # the item fails and is tried again later; the site may recover
         if name != spec["leaf"]:
             raise ValueError(f"{kind}: reached report {name}, expected {spec['leaf']} (path {prefix})")
         exp_url = SITE + re.search(r'"ExportUrlBase":"([^"]+)"', v).group(1).replace("\\u0026", "&") + "CSV"

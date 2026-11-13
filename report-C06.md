@@ -1,14 +1,15 @@
 # C06: PMGSY (OMMAS) contractor master and works awarded (pmgsy.dord.gov.in)
 
-**Status:** ✅ COMPLETE. **59,843** contractors of all 37 states, **205,987** works awarded (plus 1,200 awarded then terminated) and,
-new, **7,087 contractor performance scores with full PAN** are stored. All refresh monthly. The public reports never name the
-contractor of a work.
-**Updated:** 4 Nov 2026 09:55 CET · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`)
+**Status:** ⏳ RUNNING. The contractor master (**59,843**), **205,987** works awarded and **7,087 performance scores with full PAN**
+are complete. The **road register** (PR #13, Sarthak, 13 Nov) is filling: 563,510 core network rows, 43,874 completed roads and
+86,463 eMARG roads so far; maintenance has not started. The public reports never name the contractor of a work.
+**Updated:** 14 Nov 2026 02:40 IST · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@51547a2` (`main`)
 **Projects:** `contractor-registration-pmgsy-contractors`, `contractor-registration-pmgsy-agreements` (adapter `pmgsy`, target
-`pmgsy.dord.gov.in`, `proxy="IN"`, 2 workers each)
+`pmgsy.dord.gov.in`, `proxy="IN"`, 2 workers each); road register: `-pmgsy-corenetwork` (2 workers), `-pmgsy-completed`,
+`-pmgsy-maintenance` (adapter `pmgsyreg` through `pmgsy`), `-emarg-roads` (adapter `emarg`, target `emarg.gov.in`); 1 worker each
 **Data:** `select … from public.records where project = 'contractor-registration-pmgsy-contractors'` / `'…-pmgsy-agreements'` ·
 bucket `…/docs/contractor-information/`, `…/docs/agreements/` (the site's CSV exports)
-**Previous report:** 2 Nov 2026 10:32 CET (works awarded stored; package totals in PR #7)
+**Previous report:** 4 Nov 2026 09:55 CET (performance scores stored)
 
 ---
 
@@ -31,6 +32,9 @@ bucket `…/docs/contractor-information/`, `…/docs/agreements/` (the site's CS
   6,978 of them match a contractor in the master by state and masked PAN, so the master's PANs can be completed for those.
 - **No contractor ↔ work link** in the public reports. Only the officials' OMMAS has it. pmgsytenders.gov.in (GePNIC) may give the
   winner per tender.
+- **Road register (new, PR #13):** every core network road per block (road number, route, length, from, to, habitations served),
+  every completed road per district (package, sanction year, cost, value of work done, payment, completion month), maintenance
+  spending per road and year, and the eMARG list of roads under maintenance. These join to the works awarded by package and road.
 - The planned source named omms.nic.in, which is dead; the reports moved to **pmgsy.dord.gov.in**.
 
 ## 2. Where things stand
@@ -39,6 +43,14 @@ bucket `…/docs/contractor-information/`, `…/docs/agreements/` (the site's CS
 |---|---|---:|---|---:|---:|---|
 | `-pmgsy-contractors` | ✅ COMPLETE | 370 / 370 | 0 · 0 · 0 | 66,930 (59,843 + 7,087 scores) | 74 | monthly refresh |
 | `-pmgsy-agreements` | ✅ COMPLETE | 74 / 74 | 0 · 0 · 0 | 207,187 | 74 | monthly refresh |
+| `-pmgsy-corenetwork` | ⏳ RUNNING | 473 / 792 | 0 · 319 · 0 | 563,510 | 473 | a few days (waits for a free proxy) |
+| `-pmgsy-completed` | ⏳ RUNNING | 480 / 1,584 | 0 · 1,104 · 0 | 43,874 | 480 | a few days (half are the monthly twins) |
+| `-pmgsy-maintenance` | ⏸ WAITING | 0 / 1,036 | 0 · 1,036 · 0 | 0 | 0 | starts when corenetwork ends (family proxy cap: 4) |
+| `-emarg-roads` | ✅ COMPLETE | 74 / 74 | 0 · 0 · 0 | 86,463 | 74 | monthly refresh |
+
+- 14 Nov 02:15 IST: no road-register run since 23:06 IST. Other families held all 10 Indian proxies; the family uses at most 4.
+- 42 core network and 44 completed-roads items stored 0 rows: urban districts, union territories and new districts (for example
+  Delhi, Mumbai, Chennai, Charaideo). This is expected for districts without rural roads.
 
 - Works were read on 2 Nov, 09:03–10:11 CET, through 2 proxies, with 0 errors. Uttar Pradesh took one CSV of 21k works (~30 s).
 
@@ -138,6 +150,7 @@ where project = 'contractor-registration-pmgsy-contractors' and data->>'contract
 | 2 | **Awarded cost repeated per package** (at the source) | 24,629 packages | Flag in PR #7; sum per package. |
 | 3 | PAN masked in the master (at the source) | 56,988 | First five and last character only; the KPI gives the full PAN for 6,978 of them. |
 | 4 | Works without a work type (at the source) | 34 | Kept. |
+| 5 | **Rajasthan / Banswara completed roads** (at the source) | 1 district | The site answers its error page for every block row (14 Nov). Now a `site` failure; the item retries. |
 
 ## 10. Risks and open decisions
 - **Risks:** a change to the report's drill-through cell ids makes the item fail ("FileName" check) rather than store another report.
