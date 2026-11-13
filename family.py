@@ -201,7 +201,8 @@ PROJECTS = [
         "name": f"{FAMILY}-pmgsy-corenetwork",
         "title": "PMGSY core network road register per district: road number, name, route, length, from, to, habitations",
         "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
-        "proxy": "IN", "max_workers": 2,
+        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers
+        "proxy": "IN", "geo": "IN", "max_workers": 2,
         "unit_label": "district", "record_label": "road x habitation",
         "items": [{"key": f"cn-{state:02d}-{district}", "payload": {"report": "corenetwork", "state": state,
                                                                    "state_name": PMGSY_STATES[state], "district": district,
@@ -214,7 +215,8 @@ PROJECTS = [
         "name": f"{FAMILY}-pmgsy-completed",
         "title": "PMGSY completed roads per district: package, road, sanction year, cost, value of work done, completion month",
         "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
-        "proxy": "IN", "max_workers": 1,
+        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers
+        "proxy": "IN", "geo": "IN", "max_workers": 1,
         "unit_label": "district", "record_label": "road",
         "items": [{"key": f"done-{state:02d}-{district}{sfx}", "payload": {"report": "completed", "state": state,
                                                                           "state_name": PMGSY_STATES[state], "district": district,
@@ -227,7 +229,8 @@ PROJECTS = [
         "name": f"{FAMILY}-pmgsy-maintenance",
         "title": "PMGSY road maintenance per state and year: package, road, completion, maintenance cost and spending",
         "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
-        "proxy": "IN", "max_workers": 1,
+        # 14 Nov 2026: the proxies were all lent to other families for hours; the India servers had spare workers
+        "proxy": "IN", "geo": "IN", "max_workers": 1,
         "unit_label": "state x year", "record_label": "road",
         "items": [{"key": f"upkeep-{code:02d}-{year}", "payload": {"report": "maintenance", "state": code, "state_name": name, "year": year}}
                   for year in range(FY, 1999, -1) for code, name in PMGSY_STATES.items()]
