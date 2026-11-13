@@ -634,3 +634,14 @@ def test_banlists_item_columns_are_not_the_firm():
     f = banlists.common_fields(cols)
     assert f["item"] == "Bisacodyl tablets" and f["firm"] == "Eta Pharma" and f["upto"] == "01.01.2029"
     assert banlists.common_fields({"COMPANY NAME": "Theta Labs", "PRODUCT NAME": "Cefixime"}) == {"firm": "Theta Labs", "item": "Cefixime"}
+
+
+def test_banlists_supersedes_records_stored_with_the_item_as_firm():
+    rows = [{"sr": "1", "section": "", "columns": {"Item Name": "Bisacodyl tablets", "Name of Firm": "Eta Pharma",
+                                                   "Debarred From": "01.01.2026"}}]
+    recs = list(banlists.to_records("gmscl", rows, "test"))
+    kinds = {r["kind"]: (rid, r) for rid, r in recs}
+    assert set(kinds) == {"banned_firm", "superseded"}
+    assert kinds["superseded"][1]["replaced_by"] == kinds["banned_firm"][0] and kinds["superseded"][0] != kinds["banned_firm"][0]
+    plain = [{"sr": "1", "section": "", "columns": {"Name of Firm": "Eta Pharma", "Drug": "X"}}]
+    assert [r["kind"] for _, r in banlists.to_records("tnmsc", plain, "test")] == ["banned_firm"]

@@ -234,3 +234,4 @@ The first pass of 1 Nov 2026 (counts and findings) is in [docs/first-pass-2026-1
 - **Health checks**: since 2026-10-30 02:00 CET the hub's own server gets no answer from nhai.gov.in, morth.gov.in or any other
   India-only site (every family's checks fail on scrape.s1d.me). The projects no longer wait on them.
 - **Ban lists** (`banlists`): each list is read again every week and its rows are upserts, so a firm that leaves a list keeps its last record; `scraped_at` older than the list's last read means it is no longer on it. Some rows name a proprietor and print a PAN: keep them out of reports. The PDF of each version is in the bucket (`pdf/<list>/<hash8>-<file>.pdf`, `pdf_path` in the record).
+- **Superseded ban-list records**: on 14 Nov 2026 GMSCL's 10 rows were stored with the drug name as the firm; the records under those ids become `kind = 'superseded'` (with `replaced_by`) from the weekly run of 16 Nov. Filter `data->>'kind' = 'banned_firm'`.
