@@ -63,6 +63,9 @@ PMGSY_STATES = {1: "Andaman And Nicobar (UT)", 2: "Andhra Pradesh", 3: "Arunacha
                 23: "Meghalaya", 24: "Mizoram", 25: "Nagaland", 26: "Odisha", 27: "Puducherry (UT)", 28: "Punjab", 29: "Rajasthan",
                 30: "Sikkim", 31: "Tamil Nadu", 32: "Tripura", 33: "Uttar Pradesh", 34: "Uttarakhand", 35: "West Bengal",
                 36: "Telangana", 37: "Ladakh (UT)"}   # the site's state codes (its State list)
+# the site's districts per state (DistrictDetails, 2026-11-13): [state code, district code, name]; 792 districts
+PMGSY_DISTRICTS = [tuple(x) for x in json.loads(gzip.decompress((HERE / "queues" / "pmgsy_districts.json.gz").read_bytes()))]
+FY = TODAY.year if TODAY.month >= 4 else TODAY.year - 1     # PMGSY financial years start in April (2026 = 2026-27)
 CPWD_PAGES = 55     # pages of 200 in CPWD's contractor list (9,736 on 2026-11-01)
 STATE_LISTS = ["gujarat-rnb-civil", "gujarat-rnb-electrical"]   # adapters/statepwd.py LISTS: state contractor registers (PDF)
 MH_LISTS = ["maharashtra-pwd-civil", "maharashtra-pwd-electrical"]   # on the S3WaaS CDN: answers from anywhere, no proxy
@@ -189,6 +192,57 @@ PROJECTS = [
         "unit_label": "state", "record_label": "work",
         # 37 states (Sikkim 1,263 works, Uttar Pradesh 21,140), again every month
         "items": [{"key": f"agreements-{code:02d}{sfx}", "payload": {"report": "agreements", "state": code, "state_name": name}}
+                  for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items()],
+    },
+    {
+        # the PMGSY road register (OMMAS citizen reports, adapters/pmgsyreg.py): Core Network -> Road-wise Core Network, each
+        # district's blocks drilled through to their roads (road number L031 / T05, name, route, chainage, length, from, to,
+        # habitations served). The core network changes slowly: one pass (2026-11-13: 792 districts in 37 states).
+        "name": f"{FAMILY}-pmgsy-corenetwork",
+        "title": "PMGSY core network road register per district: road number, name, route, length, from, to, habitations",
+        "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 2,
+        "unit_label": "district", "record_label": "road x habitation",
+        "items": [{"key": f"cn-{state:02d}-{district}", "payload": {"report": "corenetwork", "state": state,
+                                                                   "state_name": PMGSY_STATES[state], "district": district,
+                                                                   "district_name": dname}}
+                  for state, district, dname in PMGSY_DISTRICTS],
+    },
+    {
+        # Proposals -> Completed Roads with Value of Work Done, per district: package, road, sanction year, sanctioned cost,
+        # value of work done, payment made, completion month. Once, then every month.
+        "name": f"{FAMILY}-pmgsy-completed",
+        "title": "PMGSY completed roads per district: package, road, sanction year, cost, value of work done, completion month",
+        "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "district", "record_label": "road",
+        "items": [{"key": f"done-{state:02d}-{district}{sfx}", "payload": {"report": "completed", "state": state,
+                                                                          "state_name": PMGSY_STATES[state], "district": district,
+                                                                          "district_name": dname}}
+                  for sfx in ("", f"-{MONTH}") for state, district, dname in PMGSY_DISTRICTS],
+    },
+    {
+        # Expenditure on DLP Maintenance, per state and financial year (2000-01 to now): every road's maintenance cost, whether
+        # it is in its liability period, and the year's and total maintenance spending. The current year again every month.
+        "name": f"{FAMILY}-pmgsy-maintenance",
+        "title": "PMGSY road maintenance per state and year: package, road, completion, maintenance cost and spending",
+        "task": "crawl", "target": "pmgsy.dord.gov.in", "env": _env("pmgsy", "https://pmgsy.dord.gov.in", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "state x year", "record_label": "road",
+        "items": [{"key": f"upkeep-{code:02d}-{year}", "payload": {"report": "maintenance", "state": code, "state_name": name, "year": year}}
+                  for year in range(FY, 1999, -1) for code, name in PMGSY_STATES.items()]
+                 + [{"key": f"upkeep-{code:02d}-{FY}-{MONTH}", "payload": {"report": "maintenance", "state": code, "state_name": name, "year": FY}}
+                    for code, name in PMGSY_STATES.items()],
+    },
+    {
+        # emarg.gov.in "Know Your Road": the public state / district / block / road lists of the roads under PMGSY maintenance
+        # (adapters/emarg.py). The road details (contractor, maintenance dates, spending) need a captcha: not fetched.
+        "name": f"{FAMILY}-emarg-roads",
+        "title": "eMARG roads under maintenance per state, district and block (road id and name)",
+        "task": "crawl", "target": "emarg.gov.in", "env": _env("emarg", "https://emarg.gov.in/application_main.htm", ocr=False),
+        "proxy": "IN", "max_workers": 1,
+        "unit_label": "state", "record_label": "road",
+        "items": [{"key": f"roads-{code:02d}{sfx}", "payload": {"state": code, "state_name": name}}
                   for sfx in ("", f"-{MONTH}") for code, name in PMGSY_STATES.items()],
     },
     {

@@ -66,6 +66,20 @@ jobs:
         run: >
           scrape-check --project contractor-registration-ci-pmgsy-agreements --task crawl --env ADAPTER=pmgsy --timeout 600
           --item '{"key": "agreements-30", "payload": {"report": "agreements", "state": 30, "state_name": "Sikkim"}}'
+      - name: scrape-check pmgsy road register (core network, completed roads, maintenance; reachability, does not fail the check)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          scrape-check --project contractor-registration-ci-pmgsy-corenetwork --task crawl --env ADAPTER=pmgsy --timeout 600 \
+            --item '{"key": "cn-30-403", "payload": {"report": "corenetwork", "state": 30, "state_name": "Sikkim", "district": 403, "district_name": "North"}}'
+          scrape-check --project contractor-registration-ci-pmgsy-maintenance --task crawl --env ADAPTER=pmgsy --timeout 600 \
+            --item '{"key": "upkeep-30-2025", "payload": {"report": "maintenance", "state": 30, "state_name": "Sikkim", "year": 2025}}'
+      - name: scrape-check emarg (reachability, does not fail the check)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: >
+          scrape-check --project contractor-registration-ci-emarg --task crawl --env ADAPTER=emarg --timeout 600
+          --item '{"key": "roads-30", "payload": {"state": 30, "state_name": "Sikkim"}}'
       - name: scrape-check statepwd (reachability, does not fail the check)
         if: ${{ always() }}
         continue-on-error: true

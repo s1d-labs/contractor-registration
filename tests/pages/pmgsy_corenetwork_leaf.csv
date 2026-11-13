@@ -1,0 +1,10 @@
+﻿Textbox62,Textbox256
+State: Sikkim     District: East     Block: Khamdung     Route: All,Note:- All Length in Kms.
+
+Textbox87,Textbox11,Textbox13,Textbox15,Textbox17,Textbox19,Textbox21,Textbox23,Textbox25,Textbox27,Textbox22,Textbox3,Textbox9,Textbox88,PLAN_CN_ROAD_NUMBER,PLAN_RD_NAME,PLAN_RD_ROUTE,PLAN_RD_FROM_CHAINAGE,PLAN_RD_TO_CHAINAGE,PLAN_RD_LENG,PLAN_RD_LENGTH,RD_FROM,RD_TO,Textbox24,MAST_HAB_NAME,MAST_HAB_TOT_POP,Textbox43,Textbox47,Textbox26,Textbox52
+Sr.No.,Road Number,Road Name,Road Route,Road From Chainage,Road To Chainage,Partial/Full Length,Road Length,Road From,Road To,Total Population,Habitation Name,Habitation Population,1,L031,Penlong to gumpa school,Link Route,0.000,7.000,Full,7.000,T05,SAKYONG.,501,SAKYONG.,501,Total,25.800,"2,608","2,608"
+Sr.No.,Road Number,Road Name,Road Route,Road From Chainage,Road To Chainage,Partial/Full Length,Road Length,Road From,Road To,Total Population,Habitation Name,Habitation Population,2,L059,DIKCHU MAKHA ROAD TO DUNGDUNG.,Link Route,0.000,7.800,Full,7.800,THASA,DUNGDUNG.,"1,345",DUNGDUNG.,660,Total,25.800,"2,608","2,608"
+Sr.No.,Road Number,Road Name,Road Route,Road From Chainage,Road To Chainage,Partial/Full Length,Road Length,Road From,Road To,Total Population,Habitation Name,Habitation Population,2,L059,DIKCHU MAKHA ROAD TO DUNGDUNG.,Link Route,0.000,7.800,Full,7.800,THASA,DUNGDUNG.,"1,345",RALAP.,685,Total,25.800,"2,608","2,608"
+Sr.No.,Road Number,Road Name,Road Route,Road From Chainage,Road To Chainage,Partial/Full Length,Road Length,Road From,Road To,Total Population,Habitation Name,Habitation Population,3,L065,NH 31 A TO TINTEK CHISOPANI,Link Route,0.000,6.000,Partial,6.000,L065,TINTEK.,762,TINTEK.,762,Total,25.800,"2,608","2,608"
+Sr.No.,Road Number,Road Name,Road Route,Road From Chainage,Road To Chainage,Partial/Full Length,Road Length,Road From,Road To,Total Population,Habitation Name,Habitation Population,4,L074,DIKCHU MAKHA RD TO DUNGDUNG,Link Route,0.000,5.000,Partial,5.000,T03,DUNGDUNG,0,-,0,Total,25.800,"2,608","2,608"
+

@@ -221,6 +221,9 @@ def agreements(ctx, payload):
 
 
 def run(ctx, payload):
+    if payload.get("report") in ("corenetwork", "completed", "maintenance"):
+        from adapters import pmgsyreg                     # the road register reports (drill-through to road lists)
+        return pmgsyreg.run(ctx, payload)
     if payload.get("report") == "agreements":
         return agreements(ctx, payload)
     if payload.get("report") == "kpi":
