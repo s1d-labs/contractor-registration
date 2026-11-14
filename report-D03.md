@@ -72,7 +72,11 @@ names the list · bucket `contractor-registration-banlists*/pdf/<list>/`
    not proof that it is the same firm. 39 names match in any state, but most are common names. Method in [7.3](#73-how-to-query-it).
 5. **A masked PAN does not identify a firm.** 18 banned rows print a PAN. 12 PMGSY master rows have the same masked PAN (first five
    and last character), and all 12 are different firms. No full PAN matches the PMGSY scores or the Uttarakhand register.
-6. **BHEL's two lists include the government's own bans.** Both PDFs end with a part "as per Government instruction" (5 and 4 firms,
+6. **Banned names keep winning on the central portal (indicator).** 109 CPPP awards went to a bidder with the same name as a firm on
+   a ban list while the ban was in force (₹330.4 crore; one state-owned insurer is ₹230.7 crore of it). None came from the banning
+   organisation: a PSU's ban binds only that PSU, so this shows that buyers share no ban register. Tables:
+   `ws_trideep.contractor_registration.banned_bidder_matches`, `banned_wins_during`.
+7. **BHEL's two lists include the government's own bans.** Both PDFs end with a part "as per Government instruction" (5 and 4 firms,
    orders from 2010 to 2025). The records keep the part in `section`.
 
 ## 5. The source
