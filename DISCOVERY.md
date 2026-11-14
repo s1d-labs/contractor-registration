@@ -27,11 +27,27 @@ reports are newer.
   TSMSIDC, CGMSC, OSMC: no list found on the home page (or no answer).
 - **First pool pass of the ban lists (14 Nov 03:50–04:20 IST):** the 9 D03 lists stored 456 records (as local). The 4 D04 lists
   failed from a GitHub runner (Azure `52.159.229.163`, "site did not answer"); `-banlists` now borrows an Indian proxy too.
-- **The hub keeps no `geo` setting (14 Nov):** after setup with `geo="IN"` (PMGSY road register, RDSO), `projects.settings` has no
-  `geo` key for any project of any family, and the India servers ran only `civic-officials-india-direct`. RDSO ran on an India
-  server on 4 Nov. Probably a change in the hub's move to dev-vps-3; ask Sarthak. Until then `geo` does nothing here.
+- **`geo` is retired (hub owner, 12 Nov 2026):** the hub's audit log says "geo IN dropped (geo is retired since 2026-11-12); proxy stays IN".
+  The India servers are not for us; `proxy="IN"` is the route. (14 Nov I wrote "probably a bug": wrong.)
 - **C02 recheck (14 Nov, through a proxy):** MP PWD answers again (4 Nov: no answer), but shows no public list (registration
   is a login system). UP, Punjab, WB PWD, Assam and Maharashtra WRD still time out. Karnataka's home page answers.
+
+**15 Nov 2026:**
+- Sarthak: run the projects whose sites are not geo-blocked on GitHub runners. A CI step now tries each proxied project's site from
+  the runner: only `bhel.com` and `bharatpetroleum.in` answer; CPWD 403, PMGSY and eMARG 401, MES, WB PHED, RDSO and the state PWD
+  sites time out or refuse. So `-banlists` (BHEL, Oil India, OPaL, NHPC, NDDB) runs without a proxy; the medical lists move to
+  `-banlists-in` from week 47 (their 14 Nov records stay in `-banlists`).
+- **Investigation (tables in `ws_trideep.contractor_registration`, Metabase "Workspace: trideep"; firm names are in the tables, not here):**
+  - 646 ban-list rows (13 lists, CPWD debarred and suspended, PMGSY blacklisted) against 1.2 M CPPP bidders (`eprocure`): 366 banned
+    names are also bidder names; 109 awards ("Accepted-AOC") went to a same-name bidder while the ban was in force (₹330.4 crore).
+    None came from the banning organisation (PSU bans bind only the PSU). One state-owned insurer is ₹230.7 crore of it. Names with
+    a distinctive core: 25 awards; common names: 84 (many can be other firms).
+  - Uttarakhand: 203 PANs hold granted registrations under 2 or 3 really different firm names (difflib < 0.8; 201 individuals).
+    The PAN-level list is only in the bucket (`from-box/restricted/contractor-registration/`).
+  - CPWD's lists disagree: 2 of 9 debarred and 11 of 20 suspended firms are "Current" in its enlistment list (8 without a ban date).
+  - Tested and dropped: two same-PAN firms on one CPPP tender (the hits were spelling variants of one proprietor's name).
+  - Final HTML report (working draft, not published): `final/contractor-registration-report.html` (git-excluded), built by
+    `final/build_report.py` from the tables above.
 
 **4 Nov 2026:**
 - PR #8 squash-merged (`51547a2`) and setup run: proxied projects back in the pool, MES on `proxy_only=["91.124.42."]`.

@@ -3,7 +3,8 @@
 **Status:** ✅ COMPLETE. The family reads 4 lists from 3 state medical services corporations. The pool stored **130** rows
 (84 suppliers) on 14 Nov, through the Indian proxies (the sites do not answer GitHub runners). Each list is read again every week.
 **Updated:** 14 Nov 2026 05:30 IST · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@f9efa86` (`main`, pushed)
-**Projects:** `contractor-registration-banlists` (task `crawl`, adapter `banlists`, `proxy="IN"`, 1 worker; shared with
+**Projects:** `contractor-registration-banlists-in` from week 47 (task `crawl`, adapter `banlists`, `proxy="IN"`, 1 worker); the first
+records (14 Nov) are in `contractor-registration-banlists` (shared with
 [D03](report-D03.md))
 **Data:** `select … from public.records where project = 'contractor-registration-banlists' and data->>'list' in ('tnmsc',
 'rmsc-company', 'rmsc-product', 'gmscl')` · bucket: none (the lists are web pages; the order PDFs they link are not stored)
