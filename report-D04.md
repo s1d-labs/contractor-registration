@@ -1,9 +1,8 @@
 # D04: State medical services corporations: blacklisted and debarred suppliers (TNMSC, RMSC, GMSCL)
 
-**Status:** ⏳ RUNNING. The family reads 4 lists from 3 state medical services corporations. Local runs on 14 Nov stored
-**130** rows (84 suppliers). The first pool pass failed: the sites do not answer GitHub runners. The project goes
-through the Indian proxies from 14 Nov 04:40 IST.
-**Updated:** 14 Nov 2026 04:40 IST · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@f9efa86` (`main`, pushed)
+**Status:** ✅ COMPLETE. The family reads 4 lists from 3 state medical services corporations. The pool stored **130** rows
+(84 suppliers) on 14 Nov, through the Indian proxies (the sites do not answer GitHub runners). Each list is read again every week.
+**Updated:** 14 Nov 2026 05:30 IST · **Family:** `contractor-registration` · **Code:** `s1d-labs/contractor-registration@f9efa86` (`main`, pushed)
 **Projects:** `contractor-registration-banlists` (task `crawl`, adapter `banlists`, `proxy="IN"`, 1 worker; shared with
 [D03](report-D03.md))
 **Data:** `select … from public.records where project = 'contractor-registration-banlists' and data->>'list' in ('tnmsc',
@@ -26,23 +25,25 @@ through the Indian proxies from 14 Nov 04:40 IST.
 - **Most bans are for quality:** 54 of 101 RMSC product bans are "not of standard quality" (NOSQ); GMSCL gives the assay result
   (for example 66.17 % of the declared amoxicillin content).
 - **4 suppliers are on the lists of two corporations** (indicators: name match only).
-- **Next:** check that the 8 items finish through the proxies (query in [7.3](#73-how-to-query-it)).
+- **Known issue:** the 10 GMSCL records name the drug as the firm (stored by a runner with the code before the fix). The weekly
+  item of 16 Nov stores them right and marks the old ids `superseded`. Until then, read `columns.name_of_firm`.
+- **Next:** nothing to do.
 
 ## 2. Where things stand
 
 | List | Organisation | Rows | Suppliers | Bans end in | State |
 |---|---|---:|---:|---|---|
-| `rmsc-product` | RMSC, product-wise | 101 | 80 | 2026–2029 (5 rows without a date) | ⏳ waits for a proxy |
-| `tnmsc` | TNMSC (drugs, equipment) | 11 | 10 | 2027–2031 | ⏳ waits for a proxy |
-| `gmscl` | GMSCL | 10 | 8 | 2027–2029 | ⏳ waits for a proxy |
-| `rmsc-company` | RMSC, company-wise | 8 | 8 | 2030–2031 | ⏳ waits for a proxy |
+| `rmsc-product` | RMSC, product-wise | 101 | 80 | 2026–2029 (5 rows without a date) | ✅ stored |
+| `tnmsc` | TNMSC (drugs, equipment) | 11 | 10 | 2027–2031 | ✅ stored |
+| `gmscl` | GMSCL | 10 | 8 | 2027–2029 | ✅ stored |
+| `rmsc-company` | RMSC, company-wise | 8 | 8 | 2030–2031 | ✅ stored |
 
 - The project and its pace are in [D03, section 2](report-D03.md#2-where-things-stand).
 
 ## 3. Pick up here
 - **Repo:** `~/contractor-registration` (`main`, clean) · **Run tests:** `~/.venvs/cr/bin/python -m pytest -q tests` (59 pass)
 - **Try one list:** `~/.venvs/cr/bin/python crawl.py --local banlists '{"list": "tnmsc"}'`
-- **Next action:** check that the D04 items finish through the proxies. **Waiting on:** a free proxy.
+- **Next action:** none. **Waiting on:** the weekly item of 16 Nov (GMSCL fix).
 
 ## 4. What stands out
 1. **Quality is the main reason.** RMSC: 54 of 101 product bans are NOSQ (7 of them "grossly substandard"), 37 are for non-supply.
@@ -103,7 +104,9 @@ group by 1 having count(distinct split_part(data->>'list', '-', 1)) > 1;
 ```
 
 ## 8. Verification
-- Tests: 59 passed, including the TNMSC and RMSC page shapes (made-up names). Local runs (14 Nov): every list stored all its rows.
+- Tests: 60 passed, including the TNMSC and RMSC page shapes (made-up names).
+- Pool (14 Nov 04:50–05:15 IST, proxies `95.134.119.x` and `191.219.x`): 130 rows, the same per list as the local runs. The first
+  tries from a GitHub runner (Azure `52.159.229.163`) got no answer (2–5 per item).
 - **Not checked:** the rows against the linked order PDFs.
 
 ## 9. Known gaps and quality issues
@@ -113,6 +116,7 @@ group by 1 having count(distinct split_part(data->>'list', '-', 1)) > 1;
 | 1 | **No list found** (at the source): KMSCL (Kerala), BMSICL (Bihar), MPPHSCL, TSMSIDC, CGMSC, OSMC | 6 corporations | Their home pages link no list or do not answer. Recheck monthly. |
 | 2 | RMSC rows without an end date | 5 | Kept. |
 | 3 | Dates as printed | all | Parse in the query. |
+| 4 | **GMSCL: drug name in `firm`** (missed by us; fixed in code) | 10 | Read `columns.name_of_firm` until 16 Nov; filter `kind = 'banned_firm'` after it. |
 
 ## 10. Risks and open decisions
 - **Risks:** a page redesign fails the item (`parse`) and keeps the old records.

@@ -82,12 +82,17 @@ def _is_head(cells):
     return bool(cells) and FIRST_HEAD.match(cells[0] or "") is not None and ("name" in words or "firm" in words or "vendor" in words)
 
 
-def common_fields(columns):
+# the rules before 14 Nov 2026 05:00 IST, which read an "Item Name" column as the firm (GMSCL): records stored under those ids
+# are overwritten with a "superseded" record that points to the right one (the hub keeps records; it has no delete)
+FIELDS_V1 = [f for f in FIELDS if f[0] != "item"]
+
+
+def common_fields(columns, fields=None):
     """{common field: value} from a row's {header: value}. Pure."""
     out = {}
     for head, value in columns.items():
         h = head.lower()
-        for field, pat in FIELDS:
+        for field, pat in fields or FIELDS:
             if re.search(pat, h):
                 if field not in out and value:
                     out[field] = value
@@ -212,6 +217,11 @@ def to_records(name, rows, source, extra=None):
         ident = sha1(name, (common.get("firm") or text).upper(), common.get("from_date", ""), common.get("order_ref", ""))[:16]
         seen[ident] = seen.get(ident, 0) + 1
         rid = f"{name}-{ident}" + (f"-{seen[ident]}" if seen[ident] > 1 else "")
+        v1 = common_fields(cols, FIELDS_V1)
+        if v1.get("firm") and v1.get("firm") != common.get("firm"):
+            old = sha1(name, v1["firm"].upper(), v1.get("from_date", ""), v1.get("order_ref", ""))[:16]
+            yield f"{name}-{old}", {"kind": "superseded", "list": name, "replaced_by": rid,
+                                    "note": "stored on 14 Nov 2026 with the item name as the firm"}
         yield rid, {"kind": "banned_firm", "list": name, "org": spec["org"], "list_kind": spec["kind"], "sr": row["sr"],
                     "section": row["section"], **common, **({"pan": pan.group(1)} if pan else {}),
                     "columns": {_key(h): v for h, v in cols.items()}, "source": source, **(extra or {})}
@@ -256,5 +266,5 @@ def run(ctx, payload):
     n = 0
     for rid, rec in to_records(name, rows, source, extra):
         ctx.record(rid, rec)
-        n += 1
+        n += rec["kind"] == "banned_firm"
     return n
