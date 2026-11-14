@@ -16,7 +16,7 @@ D03 and D04 (PSU and state medical corporation ban lists) of india.s1d.me. The s
 | `tests/`, `tests/pages/` | parser tests on saved (or hand-made) pages; `python -m pytest -q tests` |
 | `tools/` | box-side tools: `build_queues.py` (OCR queue, MoRTH baseline), `ireps_vendors.py` (human sign-in, on hold) |
 | `queues/` | queue items built from what is stored (OCR batches, PMGSY districts, NHAI re-fetch) |
-| `report-C01.md` … `report-C06.md`, `report-D03.md` | one report per planned source, for readers (published on pub.s1d.me) |
+| `report-C01.md` … `report-C06.md`, `report-D03.md`, `report-D04.md` | one working report per planned source |
 | `DATA.md` | where the records and files are, record ids, data quality notes |
 | `DISCOVERY.md` | internal notes: what each site offers, logins, dead ends, decisions |
 | `docs/` | older material (the first pass of 1 Nov 2026) |
@@ -40,20 +40,10 @@ OCR pass) and `docs/`. A document stored before and unchanged on the site is not
 
 ## Reports
 
-One report per planned source, in the repo and on pub.s1d.me (team members open them after the id.s1d.me sign-in):
-
-| Source | File | Published |
-|---|---|---|
-| C01 CPWD | [report-C01.md](report-C01.md) | https://pub.s1d.me/p/contractor-registration-c01 |
-| C02 State PWD / R&B / PHED | [report-C02.md](report-C02.md) | https://pub.s1d.me/p/contractor-registration-c02 |
-| C03 MES | [report-C03.md](report-C03.md) | https://pub.s1d.me/p/contractor-registration-c03 |
-| C04 RDSO / IREPS | [report-C04.md](report-C04.md) | https://pub.s1d.me/p/contractor-registration-c04 |
-| C05 NHAI / MoRTH | [report-C05.md](report-C05.md) | https://pub.s1d.me/p/contractor-registration-c05 |
-| C06 PMGSY | [report-C06.md](report-C06.md) | https://pub.s1d.me/p/contractor-registration-c06 |
-| D03 PSU ban lists | [report-D03.md](report-D03.md) | https://pub.s1d.me/p/contractor-registration-d03 |
-| D04 medical corporations' blacklists | [report-D04.md](report-D04.md) | https://pub.s1d.me/p/contractor-registration-d04 |
-
-Publish a new version: `pub publish report-<ID>.md --slug contractor-registration-<id>` (see the team doc `19-publishing`).
+One working report per planned source, in this repo: [C01](report-C01.md) CPWD · [C02](report-C02.md) State PWD / R&B / PHED ·
+[C03](report-C03.md) MES · [C04](report-C04.md) RDSO / IREPS · [C05](report-C05.md) NHAI / MoRTH · [C06](report-C06.md) PMGSY ·
+[D03](report-D03.md) PSU ban lists · [D04](report-D04.md) medical corporations' blacklists. They go to pub.s1d.me only when they are
+final (charts, cross-references to the Metabase data), with the family owner's agreement.
 
 ## Run and change
 
