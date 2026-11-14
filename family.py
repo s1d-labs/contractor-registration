@@ -357,7 +357,10 @@ PROJECTS = [
         "unit_label": "list", "record_label": "firm",
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
                   for sfx in ("", f"-{WEEK}") for name in ("bhel-debarred", "bhel-banned", "oil-india", "opal", "nddb", "nhpc",
-                                                           "tnmsc", "rmsc-company", "rmsc-product", "gmscl")],
+                                                           "tnmsc", "rmsc-company", "rmsc-product", "gmscl")]
+                 # one-off (15 Nov 2026): GMSCL again in this project, so the records stored with the drug as the firm get
+                 # their "superseded" marker here before the medical lists move to -banlists-in
+                 + [{"key": "gmscl-fix-20261115", "payload": {"list": "gmscl"}}],
     },
     {
         # BPCL's holiday list, its list of vendors served a show-cause notice (holiday listing proposed), and HPCL's holiday list:

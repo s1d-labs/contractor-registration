@@ -28,6 +28,14 @@ jobs:
           python3 -c "import json; [print(c) for c in json.load(open('scrape.json')).get('setup', [])]" | grep -v "requirements.txt" | while IFS= read -r cmd; do bash -c "$cmd"; done
       - name: Parsing tests
         run: python -m pytest tests -q
+      # Which proxied projects' sites answer a GitHub runner (then they need no proxy: Sarthak, 15 Nov 2026). Never fails.
+      - name: Reachability of the proxied sites from this runner
+        if: ${{ always() }}
+        run: |
+          python3 -c "import family; [print(p['name'], p['env']['SITE']) for p in family.PROJECTS if p.get('proxy')]" | sort -u -k2 |
+          while read name url; do
+            echo "$name $(curl -s -m 25 -o /dev/null -w '%{http_code} %{time_total}s' -A 'Mozilla/5.0' -L "$url") $url"
+          done
       # A FAIL with http_error / timeouts below means the runner cannot reach that site.
       - name: scrape-check nhai (tender list + details, ratings page with its PDFs)
         run: >
