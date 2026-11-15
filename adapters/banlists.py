@@ -34,6 +34,14 @@ LISTS = {
                      "kind": "holiday", "pdf": r"bpcl-holiday-listing[^\"'<>]*\.pdf"},
     "bpcl-show-cause": {"org": "BPCL", "page": "https://www.bharatpetroleum.in/bharat-petroleum-for/business-associates/vendors.aspx",
                         "kind": "show_cause", "pdf": r"scn-list[^\"'<>]*\.pdf"},
+    # 15 Nov 2026: more central buyers' lists (found by a research pass; each answers from Germany)
+    "irctc": {"org": "IRCTC", "page": "https://irctc.com/IRCTC/debarredFirmDetails", "kind": "debarred"},
+    "ntpc": {"org": "NTPC", "page": "https://ntpctender.ntpc.co.in/Index/bannedparty_banning_policy", "kind": "banned"},
+    "cpcl": {"org": "CPCL", "page": "https://www.cpcl.co.in/tenders/tenders-others/ban-on-business-dealings/", "kind": "banned",
+             "head": ["S.No", "Name and address of the firm", "Period", "Period"]},   # the page prints no header row
+    "hindustan-copper": {"org": "Hindustan Copper", "page": "https://www.hindustancopper.com/Page/BlackListedVendors", "kind": "blacklisted"},
+    "bhel-pem": {"org": "BHEL (PEM, Noida)", "kind": "debarred", "pdf": r"\.pdf",
+                 "page": "https://pem.bhel.com/Documents/VendorSection/Suppliers%20debarred%20within%20PEM.pdf"},
     # planned source D04: state medical services corporations' blacklisted / debarred suppliers (drugs, equipment)
     "tnmsc": {"org": "Tamil Nadu Medical Services Corporation (TNMSC)", "page": "https://tnmsc.tn.gov.in/blacklisted/blacklisted.php",
               "kind": "blacklisted"},
@@ -139,6 +147,8 @@ def table_rows(tables):
                 sub = False
                 continue
             sub = False
+            if head and SERIAL.match(cells[0]) and len(cells) == len(head) - 1:
+                cells.append("")                          # IRCTC leaves out the last (attachment) cell
             if head and SERIAL.match(cells[0]) and len(cells) == len(head):
                 prev = out[-1]["columns"] if out else {}
                 cols = {}
@@ -259,6 +269,8 @@ def run(ctx, payload):
             ctx.hub.failure("scan", name, f"{url} has no text layer (OCR later)")
     else:
         tables, source = html_tables(page), spec["page"]
+    if spec.get("head") and tables:
+        tables[0].insert(0, spec["head"])
     rows = table_rows(tables)
     if not rows:
         ctx.hub.failure("parse", name, "no rows with a serial number found (layout changed?)")

@@ -32,7 +32,8 @@ jobs:
       - name: Reachability of the proxied sites from this runner
         if: ${{ always() }}
         run: |
-          python3 -c "import family; [print(p['name'], p['env']['SITE']) for p in family.PROJECTS if p.get('proxy')]" | sort -u -k2 |
+          { python3 -c "import family; [print(p['name'], p['env']['SITE']) for p in family.PROJECTS if p.get('proxy')]";
+            python3 -c "from adapters.banlists import LISTS; [print('banlists:' + k, v['page']) for k, v in LISTS.items()]"; } | sort -u -k2 |
           while read name url; do
             echo "$name $(curl -s -m 25 -o /dev/null -w '%{http_code} %{time_total}s' -A 'Mozilla/5.0' -L "$url") $url"
           done
