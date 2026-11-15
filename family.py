@@ -352,13 +352,13 @@ PROJECTS = [
         # project runs there without a proxy (Sarthak, 15 Nov: open sites run on GitHub runners). The medical corporations'
         # sites refuse runners: from week 47 their weekly items are in -banlists-in.
         "name": f"{FAMILY}-banlists",
-        "title": "Firms banned, debarred or put on holiday by PSUs (BHEL, Oil India, OPaL, NHPC, NDDB, IRCTC, NTPC, CPCL, Hindustan Copper)",
+        "title": "Firms banned, debarred or put on holiday by PSUs (BHEL, Oil India, OPaL, NHPC, NDDB, IRCTC, NTPC)",
         "task": "crawl", "target": "banlists", "env": _env("banlists", "https://www.bhel.com", ocr=False),
         "max_workers": 1,
         "unit_label": "list", "record_label": "firm",
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
                   for sfx in ("", f"-{WEEK}") for name in ("bhel-debarred", "bhel-banned", "oil-india", "opal", "nddb", "nhpc",
-                                                           "irctc", "ntpc", "cpcl", "hindustan-copper", "bhel-pem")]
+                                                           "irctc", "ntpc")]
                  # one-off (15 Nov 2026): GMSCL again in this project, so the records stored with the drug as the firm get
                  # their "superseded" marker here before the medical lists move to -banlists-in
                  + [{"key": "gmscl-fix-20261115", "payload": {"list": "gmscl"}}],
@@ -374,7 +374,10 @@ PROJECTS = [
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
                   for sfx in ("", f"-{WEEK}") for name in ("bpcl-holiday", "bpcl-show-cause", "hpcl-holiday")]
                  # the medical corporations' lists (D04) from week 47; their first records (14 Nov) are in -banlists
-                 + [{"key": f"{name}-{WEEK}", "payload": {"list": name}} for name in ("tnmsc", "rmsc-company", "rmsc-product", "gmscl")],
+                 + [{"key": f"{name}-{WEEK}", "payload": {"list": name}} for name in ("tnmsc", "rmsc-company", "rmsc-product", "gmscl")]
+                 # refuse GitHub runners (CI reachability step, 15 Nov 2026: BHEL PEM 403, CPCL and Hindustan Copper time out)
+                 + [{"key": f"{name}{sfx}", "payload": {"list": name}}
+                    for sfx in ("", f"-{WEEK}") for name in ("cpcl", "hindustan-copper", "bhel-pem")],
     },
 ] + ([{
     # reads the scans stored above (ocr-needed/) back from the bucket and stores their text; no site is contacted
