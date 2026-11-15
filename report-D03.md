@@ -76,7 +76,10 @@ names the list · bucket `contractor-registration-banlists*/pdf/<list>/`
    a ban list while the ban was in force (₹330.4 crore; one state-owned insurer is ₹230.7 crore of it). None came from the banning
    organisation: a PSU's ban binds only that PSU, so this shows that buyers share no ban register. Tables:
    `ws_trideep.contractor_registration.banned_bidder_matches`, `banned_wins_during`.
-7. **BHEL's two lists include the government's own bans.** Both PDFs end with a part "as per Government instruction" (5 and 4 firms,
+7. **The banning buyer itself still got bids from banned names on GeM (indicator).** 161 GeM bids to BHEL, NHPC, BPCL, CPWD or Oil
+   India came from a seller with the name of a firm that the same buyer had banned, submitted while the ban was in force; in 68 the
+   seller was L1 (₹91.0 crore). Table: `ws_trideep.contractor_registration.gem_bids_to_banning_buyer`.
+8. **BHEL's two lists include the government's own bans.** Both PDFs end with a part "as per Government instruction" (5 and 4 firms,
    orders from 2010 to 2025). The records keep the part in `section`.
 
 ## 5. The source

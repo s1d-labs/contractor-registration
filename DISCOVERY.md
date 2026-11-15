@@ -45,6 +45,15 @@ reports are newer.
   - Uttarakhand: 203 PANs hold granted registrations under 2 or 3 really different firm names (difflib < 0.8; 201 individuals).
     The PAN-level list is only in the bucket (`from-box/restricted/contractor-registration/`).
   - CPWD's lists disagree: 2 of 9 debarred and 11 of 20 suspended firms are "Current" in its enlistment list (8 without a ban date).
+  - **GeM (`gem-results`, 4.6 M bid results, seller submission dates from the technical stage):** 161 bids went to the banning
+    organisation itself from a seller with a banned firm's name while the ban was in force (BHEL, NHPC, BPCL, CPWD, Oil India);
+    in 68 the seller was L1 (₹91.0 crore). BHEL's list says "banned across BHEL", NHPC's "across NHPC Ltd". One manpower firm on
+    BHEL's banned list since Jan 2020 was L1 in 5,213 GeM bids of other buyers after that (₹12,556 crore of L1 prices, median ₹62 lakh).
+    Tables: `gem_bids_to_banning_buyer`, `gem_bids_during_ban`. GeM shows rankings, not orders.
+  - Rules (DoE OM F.1/20/2018-PPD, 2 Nov 2021): a CPSE's ban applies only to its own purchases; a ban for all buyers needs a DoE
+    order; bidders must disclose bans of the last 3 years (GFR Rule 175). So matches with other buyers are indicators of a shared-list
+    gap, and the GeM bids to the banning buyer itself go against that buyer's own ban.
+  - Assam: one PMGSY registration number is both blacklisted and active in the contractor master (two different masked PANs).
   - Tested and dropped: two same-PAN firms on one CPPP tender (the hits were spelling variants of one proprietor's name).
   - Final HTML report (working draft, not published): `final/contractor-registration-report.html` (git-excluded), built by
     `final/build_report.py` from the tables above.
