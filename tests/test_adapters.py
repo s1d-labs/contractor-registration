@@ -645,3 +645,15 @@ def test_banlists_supersedes_records_stored_with_the_item_as_firm():
     assert kinds["superseded"][1]["replaced_by"] == kinds["banned_firm"][0] and kinds["superseded"][0] != kinds["banned_firm"][0]
     plain = [{"sr": "1", "section": "", "columns": {"Name of Firm": "Eta Pharma", "Drug": "X"}}]
     assert [r["kind"] for _, r in banlists.to_records("tnmsc", plain, "test")] == ["banned_firm"]
+
+
+def test_banlists_fixed_header_and_short_rows():
+    # CPCL prints no header row (only "FROM | TO"); IRCTC leaves out the last cell of each row. Made-up firms.
+    cpcl = [[["S.No", "Name and address of the firm", "Period", "Period"], ["", "", "FROM", "TO"],
+             ["1", "Iota Infra Pvt Ltd, Chennai", "05.07.2025", "04.07.2027"]]]
+    r = dict(banlists.to_records("cpcl", banlists.table_rows(cpcl), "test")).popitem()[1]
+    assert r["firm"] == "Iota Infra Pvt Ltd, Chennai" and r["from_date"] == "05.07.2025" and r["upto"] == "04.07.2027"
+    irctc = [[["S.No", "Firm Name", "Effective Date", "Upto", "Debarred By", "Attachment"],
+              ["1", "M/S Kappa Foods", "28-10-2026", "21-03-2027", "AGM/MCS"]]]
+    r = dict(banlists.to_records("irctc", banlists.table_rows(irctc), "test")).popitem()[1]
+    assert r["firm"] == "M/S Kappa Foods" and r["upto"] == "21-03-2027" and r["from_date"] == "28-10-2026"

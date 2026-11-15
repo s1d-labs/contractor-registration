@@ -352,12 +352,13 @@ PROJECTS = [
         # project runs there without a proxy (Sarthak, 15 Nov: open sites run on GitHub runners). The medical corporations'
         # sites refuse runners: from week 47 their weekly items are in -banlists-in.
         "name": f"{FAMILY}-banlists",
-        "title": "Firms banned, debarred or put on holiday by PSUs (BHEL, Oil India, OPaL, NHPC, NDDB) and state medical corporations",
+        "title": "Firms banned, debarred or put on holiday by PSUs (BHEL, Oil India, OPaL, NHPC, NDDB, IRCTC, NTPC, CPCL, Hindustan Copper)",
         "task": "crawl", "target": "banlists", "env": _env("banlists", "https://www.bhel.com", ocr=False),
         "max_workers": 1,
         "unit_label": "list", "record_label": "firm",
         "items": [{"key": f"{name}{sfx}", "payload": {"list": name}}
-                  for sfx in ("", f"-{WEEK}") for name in ("bhel-debarred", "bhel-banned", "oil-india", "opal", "nddb", "nhpc")]
+                  for sfx in ("", f"-{WEEK}") for name in ("bhel-debarred", "bhel-banned", "oil-india", "opal", "nddb", "nhpc",
+                                                           "irctc", "ntpc", "cpcl", "hindustan-copper", "bhel-pem")]
                  # one-off (15 Nov 2026): GMSCL again in this project, so the records stored with the drug as the firm get
                  # their "superseded" marker here before the medical lists move to -banlists-in
                  + [{"key": "gmscl-fix-20261115", "payload": {"list": "gmscl"}}],
